@@ -1,6 +1,6 @@
 {
   "name": "mongoclienteasywrapper",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "Easy wrapper for mongoclient",
   "main": "index.js",
   "scripts": {
@@ -11,8 +11,17 @@
     "url": "git+https://github.com/AlbertoMOKnesys/mongoclienteasywrapper.git"
   },
   "keywords": [
+    "mongo",
+    "mongodb",
+    "client",
+    "easy",
+    "wrapper",
+    "database",
+    "nosql",
+    "node",
     "mongoclient",
-    "wrapper"
+    "mongo client",
+    "mongo client easy wrapper"
   ],
   "author": "Alberto Martinez, Christopher Taylor Gonzalez, Gustavo Luna, Jose Tello",
   "contributors": [
@@ -37,6 +46,6 @@
   },
   "homepage": "https://github.com/AlbertoMOKnesys/mongoclienteasywrapper#readme",
   "dependencies": {
-    "mongodb": "^4.17.2"
+    "mongodb": "4.17.2"
   }
 }
