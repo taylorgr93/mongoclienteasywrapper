@@ -3,39 +3,37 @@ const { MongoClient } = require("mongodb");
 
 class MongoDBConnectionManager {
   constructor() {
-    this.connections = {}; // Almacena las conexiones por nombre de la base de datos
-    this.client = null; // Cliente único para todas las bases de datos
+    this.connections = {}; // Stores connections by database name
+    this.client = null; // Single client for all databases
   }
 
   async connect(uri) {
     if (!this.client) {
-      this.client = new MongoClient(uri, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-      });
-      await this.client.connect();
-      console.log("Conexión al servidor de MongoDB establecida.");
+      // Create client only after successful connection
+      const client = new MongoClient(uri);
+      await client.connect();
+      this.client = client;
+      console.log("Connection to the MongoDB server established.");
     }
   }
 
   isConnected() {
-    // Verifica si el cliente existe y está conectado
-    return (
-      this.client && this.client.topology && this.client.topology.isConnected()
-    );
+    // Check if the client exists and is connected
+    // MongoDB Driver 4.x+: check topology state directly
+    return this.client?.topology?.s?.state === "connected";
   }
 
-  async getDatabase(dbName) {
+  getDatabase(dbName) {
     if (!this.client) {
       throw new Error(
-        "Debes conectar al servidor antes de obtener una base de datos."
+        "You must connect to the server before obtaining a database.",
       );
     }
 
-    // Si ya existe una conexión para esta base de datos, la reutilizamos
+    // If a connection to this database already exists, we reuse it.
     if (!this.connections[dbName]) {
       this.connections[dbName] = this.client.db(dbName);
-      console.log(`Conexión creada para la base de datos: ${dbName}`);
+      console.log(`Connection created for database: ${dbName}`);
     }
 
     return this.connections[dbName];
@@ -46,11 +44,11 @@ class MongoDBConnectionManager {
       await this.client.close();
       this.connections = {};
       this.client = null;
-      console.log("Todas las conexiones a MongoDB han sido cerradas.");
+      console.log("All connections to MongoDB have been closed.");
     }
   }
 }
 
-// Exportamos una instancia única del administrador de conexiones
+// We export a single instance of the connection manager
 const mongoDBConnectionManager = new MongoDBConnectionManager();
 module.exports = mongoDBConnectionManager;

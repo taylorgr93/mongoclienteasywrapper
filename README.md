@@ -1,6 +1,6 @@
-# MongoClientEasyWrapper
+# mongoclienteasywrapper
 
-A simple MongoDB wrapper library for common database operations using the `mongodb` Node.js driver.
+> **Mongo Client Easy Wrapper** - A simple MongoDB wrapper library for common database operations using the `mongodb` Node.js driver.
 
 ## Installation
 

@@ -44,7 +44,6 @@ All notable changes to this project will be documented in this file.
 ### Documentation
 
 - Added inline English JSDoc comments to:
-
   - `aggregationMongo`
   - `DeleteMongoby_id`
   - `DeleteMongo`
@@ -145,7 +144,6 @@ All notable changes to this project will be documented in this file.
 ### Documentation
 
 - Added inline English JSDoc comments to:
-
   - `Distinct`
   - `FindPaginated`
   - `Count`
@@ -168,7 +166,6 @@ All notable changes to this project will be documented in this file.
 ### Documentation
 
 - Added inline English JSDoc comments to:
-
   - `FindPaginatedOptions`
 
 ---
@@ -199,11 +196,11 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - **`FindManyOptions`** new method to retrieve documents with configurable options:
-  - `sort`: Sort specification (defaults to `{ _id: 1 }`)
-  - `projection`: Fields to include/exclude
-  - `limit`: Maximum number of documents (0 = no limit)
-  - `skip`: Number of documents to skip (useful for pagination)
-  - Supports additional MongoDB cursor options via spread operator
+- `sort`: Sort specification (defaults to `{ _id: 1 }`)
+- `projection`: Fields to include/exclude
+- `limit`: Maximum number of documents (0 = no limit)
+- `skip`: Number of documents to skip (useful for pagination)
+- Supports additional MongoDB cursor options via spread operator
 
 ### Changed
 
@@ -217,5 +214,27 @@ All notable changes to this project will be documented in this file.
 
 - Added inline English JSDoc comments to:
   - `FindManyOptions`
+
+---
+
+## [1.2.7] – 2026‑02‑06
+
+### Added
+
+- _(no additions in this release)_
+
+## Changed
+
+- `MongoDBConnectionManager.connect`: Removed deprecated `useNewUrlParser` and `useUnifiedTopology` options (not needed in MongoDB Driver 4.x+)
+- `MongoDBConnectionManager.connect`: Client is now assigned only after successful connection to prevent inconsistent state on connection failure
+- `MongoDBConnectionManager.getDatabase`: Changed from async to sync method since `client.db()` is synchronous
+
+## Fixed
+
+- Fixed potential bug where `this.client` could be assigned before connection was established, causing inconsistent state if connection failed
+
+## Documentation
+
+- Updated inline comments for MongoDB Driver 4.x+ compatibility
 
 ---
