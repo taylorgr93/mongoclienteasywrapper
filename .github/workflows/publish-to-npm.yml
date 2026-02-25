@@ -5,8 +5,8 @@ on:
     branches:
       - main
     tags:
-      - "v*.*.*" # Correcto para semver (v1.2.8)
-
+      - "v*.*.*" # Correcto para semver 
+(v1.2.8)
 jobs:
   publish:
     runs-on: ubuntu-latest
