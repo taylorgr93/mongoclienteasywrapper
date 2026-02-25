@@ -238,3 +238,24 @@ All notable changes to this project will be documented in this file.
 - Updated inline comments for MongoDB Driver 4.x+ compatibility
 
 ---
+
+## [1.2.8] – 2026‑02‑25
+
+### Added
+
+- _(no additions in this release)_
+
+## Changed
+
+- `Count`: Replaced deprecated `.count()` with `.countDocuments()` for MongoDB driver compatibility.
+- `Count`: Error handler now returns `0` instead of `{}` for consistent numeric return type.
+
+## Fixed
+
+- _(no additions in this release)_
+
+## Documentation
+
+- _(no additions in this release)_
+
+---

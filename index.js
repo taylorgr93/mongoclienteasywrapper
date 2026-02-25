@@ -84,7 +84,7 @@ async function AggregationMongoCursor(
   arrAggregation,
   collection,
   databaseName,
-  batchSize = 100
+  batchSize = 100,
 ) {
   try {
     // Determine the database to use (incoming param or default)
@@ -133,8 +133,8 @@ async function Count(query, collection, databaseName) {
     // Get DB handle
     const db = await getMongoClient(dbName);
 
-    // Deprecated, but mirrors older code; switch to countDocuments if needed
-    return await db.collection(collection).count(query);
+    // countDocuments respects filters and is the recommended replacement for count()
+    return await db.collection(collection).countDocuments(query);
   } catch (error) {
     console.log("Count error:", error.message);
     return 0;
@@ -504,7 +504,7 @@ async function FindOneAndUpdate(
   newProperties,
   collection,
   databaseName,
-  options = {}
+  options = {},
 ) {
   try {
     // Select the database (parameter → fallback to default)
@@ -732,7 +732,7 @@ async function FindPaginated(
   pageNumber,
   nPerPage,
   collection,
-  databaseName
+  databaseName,
 ) {
   try {
     /* -------- choose database and connect -------- */
@@ -791,7 +791,7 @@ async function FindPaginatedOptions(
   nPerPage,
   collection,
   databaseName,
-  options = {}
+  options = {},
 ) {
   try {
     // Select the database (parameter → fallback to default)
@@ -1093,7 +1093,7 @@ async function UpdateOneRaw(
   newProperties,
   collection,
   databaseName,
-  options = {}
+  options = {},
 ) {
   try {
     /* -------- 1. Decide database & connect -------- */
@@ -1277,7 +1277,7 @@ async function UpdateMongoManyRename(
   query,
   newProperties,
   collection,
-  databaseName
+  databaseName,
 ) {
   try {
     // newProperties = ConvertIdtoObjectId(newProperties);
@@ -1300,7 +1300,7 @@ async function UpdateMongoBy_idPush(
   _id,
   newProperties,
   collection,
-  databaseName
+  databaseName,
 ) {
   try {
     const query = { _id: new ObjectId(_id) };
@@ -1321,7 +1321,7 @@ async function UpdateMongoManyBy_idPush(
   _idArr,
   newProperties,
   collection,
-  databaseName
+  databaseName,
 ) {
   const _idArrObject = _idArr.map((e) => new ObjectId(e));
   //si no lo resuelvo con or
@@ -1344,7 +1344,7 @@ async function UpdateMongoManyBy_idAddToSet(
   _idArr,
   newProperties,
   collection,
-  databaseName
+  databaseName,
 ) {
   const _idArrObject = _idArr.map((e) => new ObjectId(e));
   //si no lo resuelvo con or
@@ -1367,7 +1367,7 @@ async function UpdateMongoManyBy_idPull(
   _idArr,
   newProperties,
   collection,
-  databaseName
+  databaseName,
 ) {
   const _idArrObject = _idArr.map((e) => new ObjectId(e));
   //si no lo resuelvo con or
@@ -1389,7 +1389,7 @@ async function UpdateMongoManyBy_idPull(
 async function UpdateMongoManyPullIDToCollectionPull(
   query,
   collection,
-  databaseName
+  databaseName,
 ) {
   try {
     // ejemplo querie
@@ -1412,7 +1412,7 @@ async function UpdateMongoBy_idRemoveProperty(
   _id,
   property,
   collection,
-  databaseName
+  databaseName,
 ) {
   try {
     const query = { _id: new ObjectId(_id) };
@@ -1436,7 +1436,7 @@ async function UpdateBy_idPush_id(
   originCollection,
   new_id,
   collection,
-  databaseName
+  databaseName,
 ) {
   try {
     const query = { _id: new ObjectId(_id) };
@@ -1472,7 +1472,7 @@ async function GetNextSequenceValue(
   query,
   increment,
   collection,
-  databaseName
+  databaseName,
 ) {
   try {
     const DatabaseName = databaseName == null ? mongoDb : databaseName;
@@ -1483,7 +1483,7 @@ async function GetNextSequenceValue(
       .findOneAndUpdate(
         query,
         { $inc: { sequence_value: increment } },
-        { upsert: true }
+        { upsert: true },
       );
     // await db.close();
     //console.log(util.inspect(result, false, null, true /* enable colors */))
@@ -1513,7 +1513,7 @@ async function ND_FindMany(
   query,
   collection,
   databaseName,
-  order = { _id: 1 }
+  order = { _id: 1 },
 ) {
   try {
     const queryNotDeletes = { ...query, ...operatorNotDeleted };
@@ -1538,7 +1538,7 @@ async function ND_FindPaginated(
   pageNumber,
   nPerPage,
   collection,
-  databaseName
+  databaseName,
 ) {
   try {
     const queryNotDeletes = { ...query, ...operatorNotDeleted };
@@ -1765,7 +1765,7 @@ async function UpdateMongoManyPull(
   query,
   propertiesRemove,
   collection,
-  databaseName
+  databaseName,
 ) {
   try {
     const DatabaseName = databaseName == null ? mongoDb : databaseName;
