@@ -1,6 +1,6 @@
 {
   "name": "mongoclienteasywrapper",
-  "version": "1.2.12",
+  "version": "1.2.13",
   "description": "Lightweight MongoDB wrapper — simplified CRUD, aggregation, pagination, and population with automatic ObjectId/Date conversion and zero schemas",
   "main": "index.js",
   "types": "index.d.ts",
