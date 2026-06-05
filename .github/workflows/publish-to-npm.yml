@@ -5,7 +5,8 @@ on:
     branches:
       - main
     tags:
-      - "v*.*.*"  # Correcto para semver (v1.2.8)
+      - "v*.*.*"
+  workflow_dispatch:
 
 jobs:
   publish:
