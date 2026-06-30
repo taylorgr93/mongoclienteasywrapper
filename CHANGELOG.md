@@ -4,6 +4,20 @@
 
   ---
 
+  ## [1.2.15] – 2026-06-30
+
+  ### Added
+
+  - **`InsertIndex`** — New function to create a non-unique index on a collection. Mirrors `InsertIndexUnique` without the `{ unique: true }` option.
+  - **`ObjectId`** — Re-exported from the wrapper instance (`db.ObjectId`) and as a static property (`require("mongoclienteasywrapper").ObjectId`). Users no longer need to import directly from `mongodb`.
+
+  ### Tests
+
+  - Added Group 7: `InsertIndex`, `InsertIndexUnique`, `getIndexs`, and index collection cleanup.
+  - Added Group 8: `ObjectId` static export and instance export.
+
+  ---
+
   ## [1.2.14] – 2026-06-09
 
   ### Fixed

@@ -1169,6 +1169,27 @@ async function SavetoMongoCallback(objectToSave, collection, databaseName) {
 }
 
 /**
+ * InsertIndex
+ * ------------------------------------------------------------------
+ * Creates a non-unique index on the specified field(s) within a collection.
+ *
+ * @param {Object}  index          - Index specification (e.g. `{ email: 1 }`).
+ * @param {string}  collection     - Collection name.
+ * @param {string} [databaseName]  - Optional DB name; defaults to `mongoDb`.
+ * @returns {Promise<string|[]>}   Index name on success, empty array on failure.
+ */
+async function InsertIndex(index, collection, databaseName) {
+  try {
+    const dbName = databaseName || mongoDb;
+    const db = await getMongoClient(dbName);
+    return await db.collection(collection).createIndex(index);
+  } catch (error) {
+    console.error("InsertIndex error:", error.message);
+    return [];
+  }
+}
+
+/**
  * InsertIndexUnique
  * ------------------------------------------------------------------
  * Creates a unique index on the specified field(s) within a collection.
@@ -1891,7 +1912,7 @@ async function UpdateMongoManyPull(
   }
 }
 
-module.exports = function (connectionString, defaultDbName) {
+const factory = function (connectionString, defaultDbName) {
   mongo = { uri: connectionString };
   mongoDb = defaultDbName;
 
@@ -1920,6 +1941,7 @@ module.exports = function (connectionString, defaultDbName) {
     getIndexs,
     GetLastMongo,
     GetNextSequenceValue,
+    InsertIndex,
     InsertIndexUnique,
     ND_DeleteMongoby_id,
     ND_FindIDOnePopulated,
@@ -1927,6 +1949,7 @@ module.exports = function (connectionString, defaultDbName) {
     ND_FindOne,
     ND_FindPaginated,
     ND_PopulateAuto,
+    ObjectId,
     Populate,
     PopulateAuto,
     SaveManyBatch,
@@ -1949,3 +1972,6 @@ module.exports = function (connectionString, defaultDbName) {
     UpsertMongo,
   };
 };
+
+factory.ObjectId = ObjectId;
+module.exports = factory;

@@ -89,11 +89,17 @@ interface MongoWrapper {
   Count(query: Document, collection: string, databaseName?: string): Promise<number>;
   Distinct(query: Document, collection: string, databaseName?: string): Promise<unknown[]>;
   DropCollection(collection: string, databaseName?: string): Promise<boolean>;
+  InsertIndex(index: IndexDescription, collection: string, databaseName?: string): Promise<string>;
   InsertIndexUnique(index: IndexDescription, collection: string, databaseName?: string): Promise<string>;
   getIndexs(collection: string, databaseName?: string): Promise<Document[]>;
+  ObjectId: typeof ObjectId;
   GetNextSequenceValue(query: Document, increment: number, collection: string, databaseName?: string): Promise<Document | null>;
 }
 
 declare function mongoclienteasywrapper(connectionString: string, defaultDbName?: string): MongoWrapper;
+
+declare namespace mongoclienteasywrapper {
+  export { ObjectId };
+}
 
 export = mongoclienteasywrapper;

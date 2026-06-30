@@ -390,6 +390,44 @@ const testConvertAlreadyObjectId = async () => {
   assert.ok(result.user_id instanceof ObjectId, "should keep existing ObjectId");
 };
 
+const testObjectIdStaticExport = async () => {
+  const { ObjectId: StaticObjectId } = require("../index");
+  assert.strictEqual(StaticObjectId, ObjectId, "static export should be the same ObjectId class");
+  const id = new StaticObjectId(testIdDocument1);
+  assert.ok(id instanceof ObjectId, "should create a valid ObjectId instance");
+};
+
+const testObjectIdInstanceExport = async () => {
+  assert.strictEqual(MongoWraper.ObjectId, ObjectId, "instance export should be the same ObjectId class");
+  const id = new MongoWraper.ObjectId(testIdDocument1);
+  assert.ok(id instanceof ObjectId, "should create a valid ObjectId instance");
+};
+
+const testIndexCollection = "testIndexCollection";
+
+const testInsertIndex = async () => {
+  const result = await MongoWraper.InsertIndex({ name: 1 }, testIndexCollection, testDB);
+  assert.strictEqual(typeof result, "string", "should return index name");
+};
+
+const testInsertIndexUnique = async () => {
+  const result = await MongoWraper.InsertIndexUnique({ email: 1 }, testIndexCollection, testDB);
+  assert.strictEqual(typeof result, "string", "should return index name");
+};
+
+const testGetIndexs = async () => {
+  const indexes = await MongoWraper.getIndexs(testIndexCollection, testDB);
+  assert.ok(Array.isArray(indexes), "should return an array");
+  const indexNames = indexes.map((i) => i.name);
+  assert.ok(indexNames.includes("name_1"), "should contain the non-unique index");
+  assert.ok(indexNames.includes("email_1"), "should contain the unique index");
+};
+
+const testCleanupIndexCollection = async () => {
+  const result = await MongoWraper.DropCollection(testIndexCollection, testDB);
+  assert.strictEqual(result, true, "should drop the index test collection");
+};
+
 const testConvertPreservesDate = async () => {
   const now = new Date();
   const result = ConvertIdtoObjectId({ refundedAt: now, user_id: testIdDocument1 });
@@ -502,6 +540,18 @@ const runTests = async () => {
   await runTest("Skip non-id keys", testConvertSkipsNonIdKeys);
   await runTest("Keep existing ObjectId", testConvertAlreadyObjectId);
   await runTest("Preserve Date objects", testConvertPreservesDate);
+
+  // Group 7: Indexes
+  console.log("\nGroup 7: Indexes");
+  await runTest("InsertIndex", testInsertIndex);
+  await runTest("InsertIndexUnique", testInsertIndexUnique);
+  await runTest("getIndexs", testGetIndexs);
+  await runTest("DropCollection (cleanup indexes)", testCleanupIndexCollection);
+
+  // Group 8: ObjectId export
+  console.log("\nGroup 8: ObjectId export");
+  await runTest("ObjectId static export", testObjectIdStaticExport);
+  await runTest("ObjectId instance export", testObjectIdInstanceExport);
 
   // Summary
   console.log(`\n${passed} passed, ${failed} failed\n`);
