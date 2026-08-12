@@ -490,6 +490,124 @@ const testFindManyOptionsProjection = async () => {
   assert.strictEqual(result[0].status, undefined, "should exclude non-projected fields");
 };
 
+// --------------- Distinct tests ---------------
+
+const testDistinct = async () => {
+  const result = await MongoWraper.Distinct("name", testCollection, testDB);
+
+  assert.ok(Array.isArray(result), "should return an array");
+  assert.strictEqual(result.length, 3, "should return 3 distinct names");
+  assert.ok(result.includes("Test Document 1"), "should include 'Test Document 1'");
+};
+
+// --------------- FindLimitLast tests ---------------
+
+const testFindLimitLast = async () => {
+  const result = await MongoWraper.FindLimitLast(
+    { status: "active" },
+    2,
+    testCollection,
+    testDB,
+  );
+
+  assert.ok(Array.isArray(result), "should return an array");
+  assert.strictEqual(result.length, 2, "should return 2 documents");
+  assert.strictEqual(
+    result[0]._id.toString(),
+    testIdDocument3,
+    "first result should be the newest document (desc sort)",
+  );
+};
+
+const testFindLimitLastWithIdConversion = async () => {
+  const result = await MongoWraper.FindLimitLast(
+    { testCollection_id: testIdDocument1 },
+    10,
+    testCollection2,
+    testDB,
+  );
+
+  assert.ok(Array.isArray(result), "should return an array");
+  assert.strictEqual(result.length, 1, "should find 1 document matching the _id reference");
+};
+
+// --------------- FindOneLast tests ---------------
+
+const testFindOneLast = async () => {
+  const result = await MongoWraper.FindOneLast(
+    { status: "active" },
+    { _id: -1 },
+    testCollection,
+    testDB,
+  );
+
+  assert.ok(result, "should return a document");
+  assert.strictEqual(
+    result._id.toString(),
+    testIdDocument3,
+    "should return the newest document",
+  );
+};
+
+// --------------- DeleteMongoCallback tests ---------------
+
+const testDeleteMongoCallback = async () => {
+  const tempId = "624e09075bda143a913c5d99";
+  await MongoWraper.SavetoMongo(
+    { _id: new ObjectId(tempId), name: "temp", status: "temp" },
+    testCollection,
+    testDB,
+  );
+
+  await MongoWraper.DeleteMongoCallback(tempId, testCollection, testDB);
+
+  const result = await MongoWraper.FindIDOne(tempId, testCollection, testDB);
+  assert.strictEqual(result, null, "document should be deleted");
+};
+
+// --------------- ConvertDatetoDatetime tests ---------------
+
+const { ConvertDatetoDatetime } = require("../utils/convertDatetime");
+
+const testDatetimeTopLevel = async () => {
+  const result = ConvertDatetoDatetime({ created_datetime: "2024-01-15" });
+  assert.ok(result.created_datetime instanceof Date, "should convert top-level _datetime to Date");
+};
+
+const testDatetimeNested = async () => {
+  const result = ConvertDatetoDatetime({
+    data: { updated_datetime: "2024-06-01" },
+  });
+  assert.ok(
+    result.data.updated_datetime instanceof Date,
+    "should convert nested _datetime to Date",
+  );
+};
+
+const testDatetimeInsideOperator = async () => {
+  const result = ConvertDatetoDatetime({
+    $set: { created_datetime: "2024-01-15" },
+  });
+  assert.ok(
+    result.$set.created_datetime instanceof Date,
+    "should convert _datetime inside $ operators",
+  );
+};
+
+const testDatetimePreservesObjectId = async () => {
+  const oid = new ObjectId(testIdDocument1);
+  const result = ConvertDatetoDatetime({ user_id: oid, name: "test" });
+  assert.ok(result.user_id instanceof ObjectId, "should preserve ObjectId values");
+  assert.strictEqual(result.name, "test", "should preserve other fields");
+};
+
+const testDatetimePreservesDate = async () => {
+  const now = new Date();
+  const result = ConvertDatetoDatetime({ createdAt: now });
+  assert.ok(result.createdAt instanceof Date, "should preserve existing Date objects");
+  assert.strictEqual(result.createdAt.getTime(), now.getTime(), "should keep same date value");
+};
+
 const testObjectIdStaticExport = async () => {
   const { ObjectId: StaticObjectId } = require("../index");
   assert.strictEqual(StaticObjectId, ObjectId, "static export should be the same ObjectId class");
@@ -538,8 +656,17 @@ const testConvertPreservesDate = async () => {
 
 // --------------- Test runner ---------------
 
+async function cleanupTestData() {
+  await MongoWraper.DropCollection(testCollection, testDB);
+  await MongoWraper.DropCollection(testCollection2, testDB);
+  await MongoWraper.DropCollection(testIndexCollection, testDB);
+}
+
 const runTests = async () => {
   console.time("test");
+
+  // Clean up residual data from previous failed runs
+  await cleanupTestData();
 
   // Group 1: Single document CRUD
   console.log("\nGroup 1: Single document CRUD");
@@ -618,9 +745,13 @@ const runTests = async () => {
   await runTest("FindManyOptions limit", testFindManyOptionsLimit);
   await runTest("FindManyOptions skip", testFindManyOptionsSkip);
   await runTest("FindManyOptions projection", testFindManyOptionsProjection);
+  await runTest("Distinct", testDistinct);
+  await runTest("FindLimitLast", testFindLimitLast);
+  await runTest("FindOneLast", testFindOneLast);
   await runTest("UpdateMongo", testUpdateMongo);
   await runTest("UpsertMongo", testUpsertMongo);
   await runTest("Count", testCount);
+  await runTest("DeleteMongoCallback", testDeleteMongoCallback);
   await runTest("DeleteMongo (cleanup)", () =>
     testDeleteMongo(
       [
@@ -629,6 +760,22 @@ const runTests = async () => {
         new ObjectId(testIdDocument3),
       ],
       testCollection,
+      3,
+    ),
+  );
+
+  // Group 5b: FindLimitLast with _id conversion (needs testCollection2 data)
+  console.log("\nGroup 5b: FindLimitLast _id conversion");
+  await runTest("SaveManyBatch (setup refs)", testSaveManyBatch);
+  await runTest("FindLimitLast with _id conversion", testFindLimitLastWithIdConversion);
+  await runTest("DeleteMongo (cleanup collection2)", () =>
+    testDeleteMongo(
+      [
+        new ObjectId(testIdDocument4),
+        new ObjectId(testIdDocument5),
+        new ObjectId(testIdDocument6),
+      ],
+      testCollection2,
       3,
     ),
   );
@@ -645,17 +792,28 @@ const runTests = async () => {
   await runTest("Keep existing ObjectId", testConvertAlreadyObjectId);
   await runTest("Preserve Date objects", testConvertPreservesDate);
 
-  // Group 7: Indexes
-  console.log("\nGroup 7: Indexes");
+  // Group 7: ConvertDatetoDatetime utility
+  console.log("\nGroup 7: ConvertDatetoDatetime");
+  await runTest("Convert top-level _datetime to Date", testDatetimeTopLevel);
+  await runTest("Convert nested _datetime to Date", testDatetimeNested);
+  await runTest("Convert _datetime inside $ operators", testDatetimeInsideOperator);
+  await runTest("Preserve ObjectId values", testDatetimePreservesObjectId);
+  await runTest("Preserve existing Date objects", testDatetimePreservesDate);
+
+  // Group 8: Indexes
+  console.log("\nGroup 8: Indexes");
   await runTest("InsertIndex", testInsertIndex);
   await runTest("InsertIndexUnique", testInsertIndexUnique);
   await runTest("getIndexs", testGetIndexs);
   await runTest("DropCollection (cleanup indexes)", testCleanupIndexCollection);
 
-  // Group 8: ObjectId export
-  console.log("\nGroup 8: ObjectId export");
+  // Group 9: ObjectId export
+  console.log("\nGroup 9: ObjectId export");
   await runTest("ObjectId static export", testObjectIdStaticExport);
   await runTest("ObjectId instance export", testObjectIdInstanceExport);
+
+  // Final cleanup
+  await cleanupTestData();
 
   // Summary
   console.log(`\n${passed} passed, ${failed} failed\n`);
