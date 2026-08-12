@@ -17,7 +17,7 @@ function ConvertIdtoObjectId(input) {
 
   if (typeof input !== "object") return input;
   if (input instanceof Date) return input;
-  if (input._bsontype === "ObjectID") return input;
+  if (input._bsontype) return input;
 
   const out = {};
   for (const [key, val] of Object.entries(input)) {
