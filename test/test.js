@@ -390,6 +390,106 @@ const testConvertAlreadyObjectId = async () => {
   assert.ok(result.user_id instanceof ObjectId, "should keep existing ObjectId");
 };
 
+// --------------- FindManyOptions tests ---------------
+
+const testFindManyOptionsSort = async () => {
+  const result = await MongoWraper.FindManyOptions(
+    {
+      _id: {
+        $in: [
+          new ObjectId(testIdDocument1),
+          new ObjectId(testIdDocument2),
+          new ObjectId(testIdDocument3),
+        ],
+      },
+    },
+    testCollection,
+    testDB,
+    { sort: { _id: -1 } },
+  );
+
+  assert.ok(Array.isArray(result), "should return an array");
+  assert.strictEqual(result.length, 3, "should return 3 documents");
+  assert.strictEqual(
+    result[0]._id.toString(),
+    testIdDocument3,
+    "first result should be the last _id (desc sort)",
+  );
+};
+
+const testFindManyOptionsLimit = async () => {
+  const result = await MongoWraper.FindManyOptions(
+    {
+      _id: {
+        $in: [
+          new ObjectId(testIdDocument1),
+          new ObjectId(testIdDocument2),
+          new ObjectId(testIdDocument3),
+        ],
+      },
+    },
+    testCollection,
+    testDB,
+    { limit: 2 },
+  );
+
+  assert.ok(Array.isArray(result), "should return an array");
+  assert.strictEqual(result.length, 2, "should return only 2 documents");
+};
+
+const testFindManyOptionsSkip = async () => {
+  const all = await MongoWraper.FindManyOptions(
+    {
+      _id: {
+        $in: [
+          new ObjectId(testIdDocument1),
+          new ObjectId(testIdDocument2),
+          new ObjectId(testIdDocument3),
+        ],
+      },
+    },
+    testCollection,
+    testDB,
+    { sort: { _id: 1 } },
+  );
+
+  const skipped = await MongoWraper.FindManyOptions(
+    {
+      _id: {
+        $in: [
+          new ObjectId(testIdDocument1),
+          new ObjectId(testIdDocument2),
+          new ObjectId(testIdDocument3),
+        ],
+      },
+    },
+    testCollection,
+    testDB,
+    { sort: { _id: 1 }, skip: 1 },
+  );
+
+  assert.strictEqual(skipped.length, 2, "should return 2 documents after skipping 1");
+  assert.strictEqual(
+    skipped[0]._id.toString(),
+    all[1]._id.toString(),
+    "first skipped result should be the second document",
+  );
+};
+
+const testFindManyOptionsProjection = async () => {
+  const result = await MongoWraper.FindManyOptions(
+    { _id: new ObjectId(testIdDocument1) },
+    testCollection,
+    testDB,
+    { projection: { name: 1, _id: 0 } },
+  );
+
+  assert.strictEqual(result.length, 1, "should return 1 document");
+  assert.ok(result[0].name, "should include projected field");
+  assert.strictEqual(result[0]._id, undefined, "should exclude _id");
+  assert.strictEqual(result[0].status, undefined, "should exclude non-projected fields");
+};
+
 const testObjectIdStaticExport = async () => {
   const { ObjectId: StaticObjectId } = require("../index");
   assert.strictEqual(StaticObjectId, ObjectId, "static export should be the same ObjectId class");
@@ -514,6 +614,10 @@ const runTests = async () => {
   await runTest("FindOne", testFindOne);
   await runTest("FindMany", testFindMany);
   await runTest("FindManyLimit", testFindManyLimit);
+  await runTest("FindManyOptions sort", testFindManyOptionsSort);
+  await runTest("FindManyOptions limit", testFindManyOptionsLimit);
+  await runTest("FindManyOptions skip", testFindManyOptionsSkip);
+  await runTest("FindManyOptions projection", testFindManyOptionsProjection);
   await runTest("UpdateMongo", testUpdateMongo);
   await runTest("UpsertMongo", testUpsertMongo);
   await runTest("Count", testCount);

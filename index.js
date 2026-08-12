@@ -438,6 +438,7 @@ async function FindManyOptions(query, collection, databaseName, options = {}) {
       .collection(collection)
       .find(query, { projection, ...mongoOptions })
       .sort(sort)
+      .skip(skip)
       .limit(limit);
     return await cursor.toArray();
   } catch (error) {
