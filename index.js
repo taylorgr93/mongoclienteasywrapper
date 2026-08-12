@@ -100,7 +100,7 @@ async function AggregationMongoCursor(
     };
   } catch (error) {
     console.error("Aggregation cursor error:", error);
-    return [];
+    return { cursor: null };
   }
 }
 
@@ -201,12 +201,8 @@ async function DeleteMongo(query, collection, databaseName) {
  * collection.  It is a thin wrapper around MongoDB’s
  * `collection.distinct()` helper.
  *
- * @param {string}  query           A **field name** for which you want the
+ * @param {string}  field            Field name for which you want the
  *                                  distinct values (e.g. `"status"` or `"sku"`).
- *                                  If you need to add a filter, you can extend
- *                                  this wrapper to accept a second argument and
- *                                  pass it as the *filter* parameter to
- *                                  `distinct(field, filter)`.
  * @param {string}  collection      Name of the collection to query.
  * @param {string} [databaseName]   Optional DB name; defaults to global `mongoDb`.
  *
@@ -218,7 +214,7 @@ async function DeleteMongo(query, collection, databaseName) {
  * const statuses = await Distinct("status", "orders");
  * // => ["pending", "shipped", "cancelled"]
  */
-async function Distinct(query, collection, databaseName) {
+async function Distinct(field, collection, databaseName) {
   try {
     // Determine which database to use
     const dbName = databaseName || mongoDb;
@@ -227,7 +223,7 @@ async function Distinct(query, collection, databaseName) {
     const db = await getMongoClient(dbName);
 
     // Fetch all distinct values for the requested field
-    return await db.collection(collection).distinct(query);
+    return await db.collection(collection).distinct(field);
   } catch (error) {
     console.log("Distinct error:", error);
     return [];
@@ -258,7 +254,7 @@ async function DropCollection(collection, databaseName) {
   } catch (error) {
     // Log the error and return a safe fallback
     console.log("DropCollection error:", error);
-    return [];
+    return false;
   }
 }
 
@@ -318,18 +314,13 @@ async function FindIDOne(Id, collection, databaseName) {
  */
 async function FindLimitLast(query, limit, collection, databaseName) {
   try {
-    /* -------- 1. Convert any *_id fields to ObjectId -------- */
-    for (const key of Object.keys(query)) {
-      if (key.includes("_id")) {
-        query[key] = new ObjectId(query[key]);
-      }
-    }
+    query = ConvertIdtoObjectId(query);
 
-    /* -------- 2. Select DB and connect -------- */
+    /* -------- Select DB and connect -------- */
     const dbName = databaseName || mongoDb;
     const db = await getMongoClient(dbName);
 
-    /* -------- 3. Query, sort DESC, limit -------- */
+    /* -------- Query, sort DESC, limit -------- */
     return await db
       .collection(collection)
       .find(query)
@@ -559,7 +550,7 @@ async function FindOneLast(query, sortobj, collection, databaseName) {
     return docs[0];
   } catch (error) {
     console.log("FindOneLast error:", error);
-    return [];
+    return {};
   }
 }
 
@@ -643,12 +634,7 @@ async function ND_PopulateAuto(query, collection, databaseName) {
   try {
     const dbName = databaseName || mongoDb;
 
-    query = Object.keys(query).reduce((acc, key) => {
-      if (key.includes("_id")) {
-        return { ...acc, [key]: new ObjectId(query[key]) };
-      }
-      return { ...acc, [key]: query[key] };
-    }, {});
+    query = ConvertIdtoObjectId(query);
 
     const queryNotDeleted = { ...query, ...operatorNotDeleted };
     const db = await getMongoClient(dbName);
@@ -1028,11 +1014,7 @@ async function UpdateMongoMany(query, newProperties, collection, databaseName) {
     newProperties = ConvertDatetoDatetime(newProperties);
 
     /* -------- 2. Normalise filter (ObjectId conversion) -------- */
-    query = Object.keys(query).reduce((acc, key) => {
-      return key.includes("_id")
-        ? { ...acc, [key]: new ObjectId(query[key]) }
-        : { ...acc, [key]: query[key] };
-    }, {});
+    query = ConvertIdtoObjectId(query);
 
     /* -------- 3. Database connection -------- */
     const dbName = databaseName || mongoDb;
@@ -1544,7 +1526,7 @@ async function DeleteMongoCallback(
   try {
     const dbName = databaseName || mongoDb;
     const db = await getMongoClient(dbName);
-    await db.collection(collection).deleteOne({ _id: idObjectToDelete });
+    await db.collection(collection).deleteOne({ _id: new ObjectId(idObjectToDelete) });
   } catch (error) {
     console.error("DeleteMongoCallback error:", error.message);
   }

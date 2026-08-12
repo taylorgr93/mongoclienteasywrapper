@@ -57,13 +57,13 @@ interface MongoWrapper {
   UpdateMongoManyBy_idPull(_idArr: (string | ObjectId)[], newProperties: Document, collection: string, databaseName?: string): Promise<UpdateResult>;
   UpdateMongoManyPull(query: Document, propertiesRemove: Document, collection: string, databaseName?: string): Promise<UpdateResult>;
   UpdateMongoManyPullIDToCollectionPull(query: Document, collection: string, databaseName?: string): Promise<UpdateResult>;
-  UpdateMongoBy_idRemoveProperty(_id: string | ObjectId, property: Document, collection: string, databaseName?: string): Promise<UpdateResult>;
+  UpdateMongoBy_idRemoveProperty(_id: string | ObjectId, property: string, collection: string, databaseName?: string): Promise<UpdateResult>;
   UpdateBy_idPush_id(_id: string | ObjectId, originCollection: string, new_id: string | ObjectId, collection: string, databaseName?: string): Promise<UpdateResult>;
 
   // Delete
   DeleteMongoby_id(_id: string | ObjectId, collection: string, databaseName?: string): Promise<DeleteResult>;
   DeleteMongo(query: Document, collection: string, databaseName?: string): Promise<DeleteResult>;
-  DeleteMongoCallback(idObjectToDelete: Document, collection: string, databaseName?: string): Promise<void>;
+  DeleteMongoCallback(idObjectToDelete: string | ObjectId, collection: string, databaseName?: string): Promise<void>;
 
   // Aggregation
   AggregationMongo(arrAggregation: Document[], collection: string, databaseName?: string): Promise<Document[]>;
@@ -87,7 +87,7 @@ interface MongoWrapper {
 
   // Utility
   Count(query: Document, collection: string, databaseName?: string): Promise<number>;
-  Distinct(query: Document, collection: string, databaseName?: string): Promise<unknown[]>;
+  Distinct(field: string, collection: string, databaseName?: string): Promise<unknown[]>;
   DropCollection(collection: string, databaseName?: string): Promise<boolean>;
   InsertIndex(index: IndexDescription, collection: string, databaseName?: string): Promise<string>;
   InsertIndexUnique(index: IndexDescription, collection: string, databaseName?: string): Promise<string>;
