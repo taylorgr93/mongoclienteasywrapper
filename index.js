@@ -844,20 +844,7 @@ async function FindPaginatedOptions(
  *                                        or empty array on error.
  */
 async function SaveManyBatch(arrToSave, collection, databaseName) {
-  try {
-    /* -------- 1. Pre-process each document -------- */
-    arrToSave = arrToSave.map(ConvertIdtoObjectId).map(ConvertDatetoDatetime);
-
-    /* -------- 2. Get DB handle -------- */
-    const dbName = databaseName || mongoDb;
-    const db = await getMongoClient(dbName);
-
-    /* -------- 3. Bulk insert -------- */
-    return await db.collection(collection).insertMany(arrToSave);
-  } catch (error) {
-    console.error("SaveManyBatch error:", error.message);
-    return [];
-  }
+  return SavetoMongoMany(arrToSave, collection, databaseName);
 }
 
 /**
