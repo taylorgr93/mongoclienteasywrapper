@@ -405,11 +405,53 @@ Functions prefixed with `ND_` automatically exclude documents where `status === 
 
 ---
 
+## Transactions
+
+Transactions let you execute multiple operations as an atomic unit — if any operation fails, all changes are rolled back automatically.
+
+> **Requires a MongoDB replica set.** Transactions are not supported on standalone servers.
+
+### `Transaction(callback, transactionOptions?)`
+
+The recommended API. Wraps your operations in a transaction with automatic retry via `session.withTransaction()`.
+
+```js
+const result = await MongoWrapper.Transaction(async (tx) => {
+  const order = await tx.SavetoMongo({ item: "Widget", qty: 5 }, "orders");
+  await tx.UpdateMongoBy_id(userId, { $set: { lastOrder: order.insertedId } }, "users");
+  // If anything throws, all operations are rolled back
+  return order;
+});
+```
+
+The `tx` object has the same functions as the wrapper — you don't need to learn a new API.
+
+### `StartSession()`
+
+For advanced use cases where you need manual control over the transaction lifecycle.
+
+```js
+const session = await MongoWrapper.StartSession();
+try {
+  session.startTransaction();
+  await MongoWrapper.SavetoMongo(doc, "orders", "myDb", { session });
+  await MongoWrapper.UpdateMongoBy_id(id, props, "users", "myDb", { session });
+  await session.commitTransaction();
+} catch (error) {
+  await session.abortTransaction();
+  throw error;
+} finally {
+  await session.endSession();
+}
+```
+
+---
+
 ## Important Notes
 
 - **`$set` wrapping**: `UpdateMongo`, `UpdateMongoBy_id`, `UpdateMongoMany`, and `UpsertMongo` automatically wrap your update object in `$set`. Use `UpdateOneRaw` or `FindOneAndUpdate` when you need raw operators like `$inc`, `$unset`, `$push`, etc.
 - **Auto-conversion**: Most functions automatically convert string `_id` fields to `ObjectId` and `_datetime` fields to `Date` objects before querying.
-- **Error handling**: Functions return safe fallback values on error (`[]`, `{}`, `0`, or `null`) rather than throwing exceptions.
+- **Error handling**: Functions return safe fallback values on error (`[]`, `{}`, `0`, or `null`) rather than throwing exceptions. Inside a `Transaction` callback, errors are re-thrown so that `withTransaction()` can detect failures and trigger an automatic rollback.
 
 ## Testing
 

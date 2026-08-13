@@ -4,6 +4,54 @@
 
   ---
 
+  ## [1.3.0] – 2026-08-13
+
+  ### Added
+
+  - **`Transaction(callback, transactionOptions?)`** — Executes multiple operations as an atomic unit with automatic retry via `session.withTransaction()`. The `tx` proxy object mirrors the full wrapper API.
+  - **`StartSession()`** — Returns a raw `ClientSession` for manual transaction control (begin, commit, abort).
+  - **`getClient()`** — New method on `MongoDBConnectionManager` to expose the underlying `MongoClient` for session creation.
+  - **`sessionOpts`** — All async wrapper functions now accept an optional last parameter `sessionOpts = {}` to pass a `session` for manual transaction usage. Backward compatible.
+
+  ### Fixed
+
+  - **Error handling in transactions** — All catch blocks now re-throw errors when a `session` is active, ensuring `withTransaction()` detects failures and triggers automatic rollback. Normal (non-transaction) calls retain the existing fallback behavior.
+  - **Connection liveness check** — `Transaction` and `StartSession` now verify the connection is alive before obtaining the client, matching the existing `getMongoClient` pattern.
+
+  ### Tests
+
+  - Added Group 10: Transaction commit and Transaction rollback tests. Gracefully skip on standalone servers (replica set required).
+  - Total tests: 52 → 56.
+
+  ### Documentation
+
+  - Added Transactions section to `README.md` with examples for both `Transaction()` and `StartSession()` APIs.
+  - Updated Error handling note in Important Notes to clarify transaction behavior.
+
+  ---
+
+  ## [1.2.16] – 2026-08-01
+
+  ### Changed
+
+  - **`ConvertDatetoDatetime`** — Made recursive to handle nested objects and added `_bsontype` guard to preserve BSON types.
+  - **`SaveManyBatch`** — Refactored to delegate directly to `SavetoMongoMany` instead of duplicating logic.
+
+  ### Fixed
+
+  - **`FindManyOptions`** — Applied `skip` option to cursor (was being ignored).
+  - **Error returns** — Standardized error return values and `_id` conversion across all functions.
+
+  ### Tests
+
+  - Added `ConvertDatetoDatetime` unit tests (Group 7): top-level, nested, `$` operators, ObjectId preservation, Date preservation.
+  - Added `FindManyOptions` tests: sort, limit, skip, projection.
+  - Added `FindLimitLast` with `_id` conversion test.
+  - Cleanup and reorganization of test groups.
+  - Total tests: 34 → 52.
+
+  ---
+
   ## [1.2.15] – 2026-06-30
 
   ### Added
@@ -127,76 +175,7 @@
 
   ---
 
-- **`ConvertIdtoObjectId`** rewritten with recursive conversion, hex24 validation, `$` operator support, and `console.warn` for invalid ObjectId strings. Replaces the old flat single-level converter.
-- Removed unused legacy files: `common.js`, `assing.js` (broken imports, dead code).
-- Removed draft file `utils/convertId copy.js`.
-- Moved `index-old.js` to `legacy/` folder.
-- Added `files` whitelist to `package.json` — npm only publishes essential files.
-- Added `engines` field (`node >= 14.0.0`) to `package.json`.
-- Added TypeScript type definitions (`index.d.ts`) for all 51 exported functions.
-
-### Tests
-
-- Added test infrastructure: `assert` module, `runTest` helper with pass/fail counters, proper `process.exit(1)` on failure.
-- Added assertions to all 10 existing tests (previously only logged results without validation).
-- Fixed `ObjectId()` calls without `new` across all test data (~15 occurrences).
-- Fixed `error.me` typo in `ND_PopulateAuto` test.
-- Added 6 new Core CRUD tests: `FindOne`, `FindMany`, `FindManyLimit`, `UpdateMongo`, `UpsertMongo`, `Count`.
-- Added 8 new `ConvertIdtoObjectId` unit tests: valid hex, invalid string, null, nested objects, `$` operators, arrays, non-id keys, existing ObjectId.
-- Total tests: 10 → 31.
-
-### Documentation
-
-- Rewrote `README.md`: added npm/license badges, setup with `defaultDbName`, ~20 functions documented with examples, remaining ~30 listed with signatures, organized by category (Insert, Find, Pagination, Update, Delete, Aggregation, Population, ND\_, Other), added "Important Notes" section.
-- Added "Why use this instead of Mongoose?" comparison table to `README.md`.
-- Improved `package.json` description and keywords for npm search discoverability.
-- Added JSDoc to `MongoDBConnectionManager` class.
-- Cleaned duplicate comment in `mongoDBConnectionManager.js` `isConnected()`.
-
----
-
-## [1.2.9] – 2026-05-26
-
-### Changed
-
-- **`SavetoMongoCallback`** converted from legacy callback-based pattern to `async`/`await` using `getMongoClient`.
-- **`DeleteMongoCallback`** converted from legacy callback-based pattern to `async`/`await` using `getMongoClient`.
-- All remaining functions refactored to project conventions: `const` everywhere, `databaseName || mongoDb` pattern, no `var`, direct returns without unnecessary intermediate variables.
-- **`module.exports`** export order fixed: `UpdateOneRaw` now listed before `UpsertMongo` (alphabetical order).
-- Removed outdated `indexNew.js` draft file.
-- Removed commented-out legacy code across `index.js` (`db.close()` calls, old `MongoClient.connect` blocks, debug `console.log` statements).
-
-### Documentation
-
-- Added inline English JSDoc to:
-  - `ND_PopulateAuto`
-  - `SavetoMongoCallback`
-  - `InsertIndexUnique`
-  - `ND_DeleteMongoby_id`
-  - `getIndexs`
-  - `UpdateMongoManyRename`
-  - `UpdateMongoBy_idPush`
-  - `UpdateMongoManyBy_idPush`
-  - `UpdateMongoManyBy_idAddToSet`
-  - `UpdateMongoManyBy_idPull`
-  - `UpdateMongoManyPullIDToCollectionPull`
-  - `UpdateMongoBy_idRemoveProperty`
-  - `UpdateBy_idPush_id`
-  - `DeleteMongoCallback`
-  - `GetNextSequenceValue`
-  - `ND_FindOne`
-  - `ND_FindMany`
-  - `ND_FindPaginated`
-  - `Populate`
-  - `PopulateAuto`
-  - `FindIDOnePopulated`
-  - `ND_FindIDOnePopulated`
-  - `UpdateMongoManyPull`
-- Removed all Spanish-language inline comments from `index.js` (English only).
-
----
-
-## [1.2.8] – 2026‑02‑25
+  ## [1.2.8] – 2026‑02‑25
 
 ### Added
 
