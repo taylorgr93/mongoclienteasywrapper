@@ -36,7 +36,7 @@ async function getMongoClient(dbName) {
  * @param {string} [databaseName]        - Optional DB name; falls back to `mongoDb`.
  * @returns {Promise<Array>} Aggregated documents.
  */
-async function AggregationMongo(arrAggregation, collection, databaseName) {
+async function AggregationMongo(arrAggregation, collection, databaseName, sessionOpts = {}) {
   try {
     // Determine the database to use (incoming param or default)
     const DatabaseName = databaseName || mongoDb;
@@ -49,11 +49,12 @@ async function AggregationMongo(arrAggregation, collection, databaseName) {
 
     // Execute the aggregation pipeline and return the results as an array
     const docs = await col
-      .aggregate(arrAggregation, { allowDiskUse: true })
+      .aggregate(arrAggregation, { allowDiskUse: true, ...sessionOpts })
       .toArray();
 
     return docs; // Return aggregated results
   } catch (error) {
+    if (sessionOpts.session) throw error;
     // Capture and log any error that occurs during aggregation
     console.error("Aggregation error:", error);
     return []; // Return empty array on failure to keep API consistent
@@ -82,6 +83,7 @@ async function AggregationMongoCursor(
   collection,
   databaseName,
   batchSize = 100,
+  sessionOpts = {},
 ) {
   try {
     // Determine the database to use (incoming param or default)
@@ -93,12 +95,13 @@ async function AggregationMongoCursor(
     // Create an aggregation cursor (streaming results in batches)
     const result = db
       .collection(collection)
-      .aggregate(arrAggregation, { cursor: { batchSize } });
+      .aggregate(arrAggregation, { cursor: { batchSize }, ...sessionOpts });
 
     return {
       cursor: result,
     };
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("Aggregation cursor error:", error);
     return { cursor: null };
   }
@@ -122,7 +125,7 @@ async function AggregationMongoCursor(
  * @returns {Promise<number>}       Number of documents matching the filter,
  *                                  or `0` if an error occurs.
  */
-async function Count(query, collection, databaseName) {
+async function Count(query, collection, databaseName, sessionOpts = {}) {
   try {
     // Choose the database (explicit param or default)
     const dbName = databaseName || mongoDb;
@@ -131,8 +134,9 @@ async function Count(query, collection, databaseName) {
     const db = await getMongoClient(dbName);
 
     // countDocuments respects filters and is the recommended replacement for count()
-    return await db.collection(collection).countDocuments(query);
+    return await db.collection(collection).countDocuments(query, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.log("Count error:", error.message);
     return 0;
   }
@@ -146,7 +150,7 @@ async function Count(query, collection, databaseName) {
  * @param {string} [databaseName]       Optional DB name; defaults to `mongoDb`.
  * @returns {Promise<DeleteResult>}     MongoDB DeleteResult object.
  */
-async function DeleteMongoby_id(Id, collection, databaseName) {
+async function DeleteMongoby_id(Id, collection, databaseName, sessionOpts = {}) {
   try {
     // Resolve which database to use (fallback to global default)
     const dbName = databaseName || mongoDb;
@@ -158,9 +162,10 @@ async function DeleteMongoby_id(Id, collection, databaseName) {
     const db = await getMongoClient(dbName);
 
     // Perform the deletion and return the raw Mongo response
-    return await db.collection(collection).deleteOne(query);
+    return await db.collection(collection).deleteOne(query, sessionOpts);
   } catch (error) {
     // Log any error and return an empty result to keep API consistent
+    if (sessionOpts.session) throw error;
     console.error("DeleteMongoby_id error:", error.message);
     return [];
   }
@@ -177,7 +182,7 @@ async function DeleteMongoby_id(Id, collection, databaseName) {
  * @returns {Promise<DeleteResult | []>} MongoDB `DeleteResult` on success
  *                                       or empty array on failure.
  */
-async function DeleteMongo(query, collection, databaseName) {
+async function DeleteMongo(query, collection, databaseName, sessionOpts = {}) {
   try {
     // Choose the database: provided name or fallback to default
     const dbName = databaseName || mongoDb;
@@ -186,9 +191,10 @@ async function DeleteMongo(query, collection, databaseName) {
     const db = await getMongoClient(dbName);
 
     // Delete every document that matches the filter
-    return await db.collection(collection).deleteMany(query);
+    return await db.collection(collection).deleteMany(query, sessionOpts);
   } catch (error) {
     // Log the error and return a safe fallback
+    if (sessionOpts.session) throw error;
     console.error("DeleteMongo error:", error.message);
     return [];
   }
@@ -214,7 +220,7 @@ async function DeleteMongo(query, collection, databaseName) {
  * const statuses = await Distinct("status", "orders");
  * // => ["pending", "shipped", "cancelled"]
  */
-async function Distinct(field, collection, databaseName) {
+async function Distinct(field, collection, databaseName, sessionOpts = {}) {
   try {
     // Determine which database to use
     const dbName = databaseName || mongoDb;
@@ -223,8 +229,9 @@ async function Distinct(field, collection, databaseName) {
     const db = await getMongoClient(dbName);
 
     // Fetch all distinct values for the requested field
-    return await db.collection(collection).distinct(field);
+    return await db.collection(collection).distinct(field, {}, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.log("Distinct error:", error);
     return [];
   }
@@ -241,7 +248,7 @@ async function Distinct(field, collection, databaseName) {
  * @returns {Promise<boolean | []>} `true` if the collection is dropped,
  *                                  or an empty array on failure.
  */
-async function DropCollection(collection, databaseName) {
+async function DropCollection(collection, databaseName, sessionOpts = {}) {
   try {
     // Choose the database to work with (parameter or default)
     const dbName = databaseName || mongoDb;
@@ -250,9 +257,10 @@ async function DropCollection(collection, databaseName) {
     const db = await getMongoClient(dbName);
 
     // Drop the collection and return MongoDB's boolean response
-    return await db.collection(collection).drop();
+    return await db.collection(collection).drop(sessionOpts);
   } catch (error) {
     // Log the error and return a safe fallback
+    if (sessionOpts.session) throw error;
     console.log("DropCollection error:", error);
     return false;
   }
@@ -272,7 +280,7 @@ async function DropCollection(collection, databaseName) {
  * @returns {Promise<Object>}            The matched document, or an empty
  *                                       object if not found / on error.
  */
-async function FindIDOne(Id, collection, databaseName) {
+async function FindIDOne(Id, collection, databaseName, sessionOpts = {}) {
   try {
     // Resolve database name (parameter overrides default)
     const dbName = databaseName || mongoDb;
@@ -284,9 +292,10 @@ async function FindIDOne(Id, collection, databaseName) {
     const db = await getMongoClient(dbName);
 
     // Fetch a single matching document
-    return await db.collection(collection).findOne(query);
+    return await db.collection(collection).findOne(query, sessionOpts);
   } catch (error) {
     // Log and return an empty object to keep the API predictable
+    if (sessionOpts.session) throw error;
     console.error("FindIDOne error:", error);
     return {};
   }
@@ -312,7 +321,7 @@ async function FindIDOne(Id, collection, databaseName) {
  * @returns {Promise<Array>}        Array with up to `limit` newest documents,
  *                                  or `[]` if an error occurs.
  */
-async function FindLimitLast(query, limit, collection, databaseName) {
+async function FindLimitLast(query, limit, collection, databaseName, sessionOpts = {}) {
   try {
     query = ConvertIdtoObjectId(query);
 
@@ -323,11 +332,12 @@ async function FindLimitLast(query, limit, collection, databaseName) {
     /* -------- Query, sort DESC, limit -------- */
     return await db
       .collection(collection)
-      .find(query)
+      .find(query, sessionOpts)
       .sort({ _id: -1 }) // newest → oldest
       .limit(limit)
       .toArray();
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.log("FindLimitLast error:", error.message);
     return [];
   }
@@ -346,16 +356,17 @@ async function FindLimitLast(query, limit, collection, databaseName) {
  * @returns {Promise<Array>}       Array of matched documents, or an empty
  *                                 array if none found / on error.
  */
-async function FindMany(query, collection, databaseName) {
+async function FindMany(query, collection, databaseName, sessionOpts = {}) {
   try {
     // Choose the database (explicit parameter or default)
     const dbName = databaseName || mongoDb;
 
     // Obtain a connection and run the query
     const db = await getMongoClient(dbName);
-    return await db.collection(collection).find(query).toArray();
+    return await db.collection(collection).find(query, sessionOpts).toArray();
   } catch (error) {
     // Log the failure and return a predictable fallback
+    if (sessionOpts.session) throw error;
     console.log("FindMany error:", error);
     return [];
   }
@@ -374,16 +385,17 @@ async function FindMany(query, collection, databaseName) {
  * @returns {Promise<Array>}        Array of matched documents (≤ limit),
  *                                  or an empty array on error.
  */
-async function FindManyLimit(query, limit, collection, databaseName) {
+async function FindManyLimit(query, limit, collection, databaseName, sessionOpts = {}) {
   try {
     // Resolve DB name (explicit param overrides default)
     const dbName = databaseName || mongoDb;
 
     // Get a DB handle and execute the limited query
     const db = await getMongoClient(dbName);
-    return await db.collection(collection).find(query).limit(limit).toArray();
+    return await db.collection(collection).find(query, sessionOpts).limit(limit).toArray();
   } catch (error) {
     // Log and return empty array if something goes wrong
+    if (sessionOpts.session) throw error;
     console.log("FindManyLimit error:", error);
     return [];
   }
@@ -433,6 +445,7 @@ async function FindManyOptions(query, collection, databaseName, options = {}) {
       .limit(limit);
     return await cursor.toArray();
   } catch (error) {
+    if (options.session) throw error;
     console.log("FindManyOptions error:", error);
     return [];
   }
@@ -449,7 +462,7 @@ async function FindManyOptions(query, collection, databaseName, options = {}) {
  * @param {string} [databaseName]   - Optional DB name; defaults to global `mongoDb`.
  * @returns {Promise<Object>}       The matched document, or an empty object on error.
  */
-async function FindOne(query, collection, databaseName) {
+async function FindOne(query, collection, databaseName, sessionOpts = {}) {
   try {
     // Determine which database to use (parameter overrides default)
     const dbName = databaseName || mongoDb;
@@ -458,9 +471,10 @@ async function FindOne(query, collection, databaseName) {
     const db = await getMongoClient(dbName);
 
     // Fetch the first document that matches the filter
-    return await db.collection(collection).findOne(query);
+    return await db.collection(collection).findOne(query, sessionOpts);
   } catch (error) {
     // Log the failure and return a safe fallback
+    if (sessionOpts.session) throw error;
     console.error("FindOne error:", error);
     return {};
   }
@@ -512,6 +526,7 @@ async function FindOneAndUpdate(
       .collection(collection)
       .findOneAndUpdate(query, newProperties, options);
   } catch (err) {
+    if (options.session) throw err;
     console.error("FindOneAndUpdate error:", err);
     return null;
   }
@@ -530,7 +545,7 @@ async function FindOneAndUpdate(
  * @param {string} [databaseName]   - Optional DB name; defaults to global `mongoDb`.
  * @returns {Promise<Object|[]>}    The single matched document, or an empty array on error.
  */
-async function FindOneLast(query, sortobj, collection, databaseName) {
+async function FindOneLast(query, sortobj, collection, databaseName, sessionOpts = {}) {
   try {
     // Decide which database to use
     const dbName = databaseName || mongoDb;
@@ -541,7 +556,7 @@ async function FindOneLast(query, sortobj, collection, databaseName) {
     // Find → sort → limit(1) → toArray()   (cursor → [doc])
     const docs = await db
       .collection(collection)
-      .find(query)
+      .find(query, sessionOpts)
       .sort(sortobj)
       .limit(1)
       .toArray();
@@ -549,6 +564,7 @@ async function FindOneLast(query, sortobj, collection, databaseName) {
     // Return the first (and only) result, or undefined if none found
     return docs[0];
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.log("FindOneLast error:", error);
     return {};
   }
@@ -565,7 +581,7 @@ async function FindOneLast(query, sortobj, collection, databaseName) {
  * @returns {Promise<Array>}        All documents in the collection, or an empty
  *                                  array if an error occurs.
  */
-async function GetAll(collection, databaseName) {
+async function GetAll(collection, databaseName, sessionOpts = {}) {
   try {
     // Choose the target database (explicit param or default)
     const dbName = databaseName || mongoDb;
@@ -574,8 +590,9 @@ async function GetAll(collection, databaseName) {
     const db = await getMongoClient(dbName);
 
     // Fetch all documents, sorted by _id ascending
-    return await db.collection(collection).find().sort({ _id: 1 }).toArray();
+    return await db.collection(collection).find({}, sessionOpts).sort({ _id: 1 }).toArray();
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.log("GetAll error:", error);
     return [];
   }
@@ -593,7 +610,7 @@ async function GetAll(collection, databaseName) {
  * @param {string} [databaseName]   - Optional DB name; defaults to global `mongoDb`.
  * @returns {Promise<Array>}        Array with up to `limit` documents or `[]` on error.
  */
-async function GetLastMongo(limit, collection, databaseName) {
+async function GetLastMongo(limit, collection, databaseName, sessionOpts = {}) {
   try {
     // Pick database: explicit param overrides global default
     const dbName = databaseName || mongoDb;
@@ -604,11 +621,12 @@ async function GetLastMongo(limit, collection, databaseName) {
     // Query everything, sort by _id descending (latest first), then limit
     return await db
       .collection(collection)
-      .find()
+      .find({}, sessionOpts)
       .sort({ _id: -1 }) // DESC to get newest first
       .limit(limit)
       .toArray();
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.log("GetLastMongo error:", error);
     return [];
   }
@@ -630,7 +648,7 @@ async function GetLastMongo(limit, collection, databaseName) {
  * @param {string} [databaseName]  - Optional DB name; defaults to `mongoDb`.
  * @returns {Promise<Array>}       Populated documents, or `[]` if none found / on error.
  */
-async function ND_PopulateAuto(query, collection, databaseName) {
+async function ND_PopulateAuto(query, collection, databaseName, sessionOpts = {}) {
   try {
     const dbName = databaseName || mongoDb;
 
@@ -643,7 +661,7 @@ async function ND_PopulateAuto(query, collection, databaseName) {
     const allKeys = new Set();
     await db
       .collection(collection)
-      .find()
+      .find({}, sessionOpts)
       .forEach((doc) => {
         for (const key in doc) allKeys.add(key);
       });
@@ -657,7 +675,7 @@ async function ND_PopulateAuto(query, collection, databaseName) {
     if (idKeys.length <= 1) {
       return await db
         .collection(collection)
-        .find(queryNotDeleted)
+        .find(queryNotDeleted, sessionOpts)
         .toArray();
     }
 
@@ -677,9 +695,10 @@ async function ND_PopulateAuto(query, collection, databaseName) {
 
     return await db
       .collection(collection)
-      .aggregate(aggregate)
+      .aggregate(aggregate, sessionOpts)
       .toArray();
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("ND_PopulateAuto error:", error.message);
     return [];
   }
@@ -715,6 +734,7 @@ async function FindPaginated(
   nPerPage,
   collection,
   databaseName,
+  sessionOpts = {},
 ) {
   try {
     /* -------- choose database and connect -------- */
@@ -727,12 +747,13 @@ async function FindPaginated(
     /* -------- run paginated query -------- */
     return await db
       .collection(collection)
-      .find(query)
+      .find(query, sessionOpts)
       .sort({ _id: 1 })
       .skip(skip)
       .limit(nPerPage)
       .toArray();
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.log("FindPaginated error:", error.message);
     return [];
   }
@@ -807,6 +828,7 @@ async function FindPaginatedOptions(
 
     return await cursor.toArray();
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.log("FindPaginatedOptions error:", error.message);
     return [];
   }
@@ -829,8 +851,8 @@ async function FindPaginatedOptions(
  * @returns {Promise<InsertManyResult|[]>} MongoDB `InsertManyResult` on success,
  *                                        or empty array on error.
  */
-async function SaveManyBatch(arrToSave, collection, databaseName) {
-  return SavetoMongoMany(arrToSave, collection, databaseName);
+async function SaveManyBatch(arrToSave, collection, databaseName, sessionOpts = {}) {
+  return SavetoMongoMany(arrToSave, collection, databaseName, sessionOpts);
 }
 
 /**
@@ -850,7 +872,7 @@ async function SaveManyBatch(arrToSave, collection, databaseName) {
  *          On success: MongoDB `InsertManyResult`
  *          On failure: empty array (and error logged to console).
  */
-async function SavetoMongoMany(arrToSave, collection, databaseName) {
+async function SavetoMongoMany(arrToSave, collection, databaseName, sessionOpts = {}) {
   try {
     // 1. Normalise ids and dates
     arrToSave = arrToSave.map(ConvertIdtoObjectId).map(ConvertDatetoDatetime);
@@ -860,8 +882,9 @@ async function SavetoMongoMany(arrToSave, collection, databaseName) {
     const db = await getMongoClient(dbName);
 
     // 3. Bulk-insert and return the MongoDB result
-    return await db.collection(collection).insertMany(arrToSave);
+    return await db.collection(collection).insertMany(arrToSave, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("SavetoMongoMany error:", error.message);
     return [];
   }
@@ -885,7 +908,7 @@ async function SavetoMongoMany(arrToSave, collection, databaseName) {
  * @returns {Promise<InsertOneResult|null>} Insert result on success, or
  *                                          `null` on failure.
  */
-async function SavetoMongo(objectToSave, collection, databaseName) {
+async function SavetoMongo(objectToSave, collection, databaseName, sessionOpts = {}) {
   try {
     // 1. Normalise any IDs and date-time strings
     objectToSave = ConvertIdtoObjectId(objectToSave);
@@ -898,8 +921,9 @@ async function SavetoMongo(objectToSave, collection, databaseName) {
     const db = await getMongoClient(dbName);
 
     // 4. Insert the document and return the result
-    return await db.collection(collection).insertOne(objectToSave);
+    return await db.collection(collection).insertOne(objectToSave, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("SavetoMongo error:", error.message);
     return null;
   }
@@ -923,7 +947,7 @@ async function SavetoMongo(objectToSave, collection, databaseName) {
  *          On success: MongoDB `UpdateResult`
  *          On failure : empty array (and error logged).
  */
-async function UpdateMongo(query, newProperties, collection, databaseName) {
+async function UpdateMongo(query, newProperties, collection, databaseName, sessionOpts = {}) {
   try {
     /* -------- 1. Normalise update payload -------- */
     newProperties = ConvertIdtoObjectId(newProperties);
@@ -936,10 +960,11 @@ async function UpdateMongo(query, newProperties, collection, databaseName) {
     /* -------- 3. Perform the update -------- */
     const result = await db
       .collection(collection)
-      .updateOne(query, { $set: newProperties });
+      .updateOne(query, { $set: newProperties }, sessionOpts);
 
     return result; // { acknowledged, matchedCount, modifiedCount, upsertedId }
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("UpdateMongo error:", error);
     return [];
   }
@@ -963,7 +988,7 @@ async function UpdateMongo(query, newProperties, collection, databaseName) {
  * @returns {Promise<UpdateResult|[]>}
  *          MongoDB `UpdateResult` on success, or an empty array on failure.
  */
-async function UpdateMongoBy_id(_id, newProperties, collection, databaseName) {
+async function UpdateMongoBy_id(_id, newProperties, collection, databaseName, sessionOpts = {}) {
   try {
     /* -------- 1. Normalise update payload -------- */
     newProperties = ConvertIdtoObjectId(newProperties);
@@ -979,10 +1004,11 @@ async function UpdateMongoBy_id(_id, newProperties, collection, databaseName) {
     /* -------- 4. Perform update -------- */
     const result = await db
       .collection(collection)
-      .updateOne(query, { $set: newProperties });
+      .updateOne(query, { $set: newProperties }, sessionOpts);
 
     return result; // { acknowledged, matchedCount, modifiedCount, upsertedId }
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("UpdateMongoBy_id error:", error.message);
     return [];
   }
@@ -1007,7 +1033,7 @@ async function UpdateMongoBy_id(_id, newProperties, collection, databaseName) {
  * @returns {Promise<UpdateResult|[]>}
  *          MongoDB `UpdateResult` on success, empty array on failure.
  */
-async function UpdateMongoMany(query, newProperties, collection, databaseName) {
+async function UpdateMongoMany(query, newProperties, collection, databaseName, sessionOpts = {}) {
   try {
     /* -------- 1. Normalise update payload -------- */
     newProperties = ConvertIdtoObjectId(newProperties);
@@ -1023,8 +1049,9 @@ async function UpdateMongoMany(query, newProperties, collection, databaseName) {
     /* -------- 4. Execute bulk update -------- */
     return await db
       .collection(collection)
-      .updateMany(query, { $set: newProperties });
+      .updateMany(query, { $set: newProperties }, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("UpdateMongoMany error:", error);
     return [];
   }
@@ -1075,6 +1102,7 @@ async function UpdateOneRaw(
       .collection(collection)
       .updateOne(query, newProperties, options);
   } catch (err) {
+    if (options.session) throw err;
     console.error("UpdateOneRaw error:", err);
     return null;
   }
@@ -1098,7 +1126,7 @@ async function UpdateOneRaw(
  *          MongoDB `UpdateResult` (contains `upsertedId` if a new doc was created),
  *          or an empty array on failure.
  */
-async function UpsertMongo(query, newProperties, collection, databaseName) {
+async function UpsertMongo(query, newProperties, collection, databaseName, sessionOpts = {}) {
   try {
     /* -------- 1. Normalise update payload -------- */
     newProperties = ConvertIdtoObjectId(newProperties);
@@ -1111,8 +1139,9 @@ async function UpsertMongo(query, newProperties, collection, databaseName) {
     /* -------- 3. Perform upsert -------- */
     return await db
       .collection(collection)
-      .updateOne(query, { $set: newProperties }, { upsert: true });
+      .updateOne(query, { $set: newProperties }, { upsert: true, ...sessionOpts });
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.log("UpsertMongo error:", error);
     return [];
   }
@@ -1128,12 +1157,13 @@ async function UpsertMongo(query, newProperties, collection, databaseName) {
  * @param {string}  collection     - Target collection name.
  * @param {string} [databaseName]  - Optional DB name; defaults to `mongoDb`.
  */
-async function SavetoMongoCallback(objectToSave, collection, databaseName) {
+async function SavetoMongoCallback(objectToSave, collection, databaseName, sessionOpts = {}) {
   try {
     const dbName = databaseName || mongoDb;
     const db = await getMongoClient(dbName);
-    await db.collection(collection).insertOne(objectToSave);
+    await db.collection(collection).insertOne(objectToSave, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("SavetoMongoCallback error:", error.message);
   }
 }
@@ -1148,12 +1178,13 @@ async function SavetoMongoCallback(objectToSave, collection, databaseName) {
  * @param {string} [databaseName]  - Optional DB name; defaults to `mongoDb`.
  * @returns {Promise<string|[]>}   Index name on success, empty array on failure.
  */
-async function InsertIndex(index, collection, databaseName) {
+async function InsertIndex(index, collection, databaseName, sessionOpts = {}) {
   try {
     const dbName = databaseName || mongoDb;
     const db = await getMongoClient(dbName);
-    return await db.collection(collection).createIndex(index);
+    return await db.collection(collection).createIndex(index, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("InsertIndex error:", error.message);
     return [];
   }
@@ -1169,14 +1200,15 @@ async function InsertIndex(index, collection, databaseName) {
  * @param {string} [databaseName]  - Optional DB name; defaults to `mongoDb`.
  * @returns {Promise<string|[]>}   Index name on success, empty array on failure.
  */
-async function InsertIndexUnique(index, collection, databaseName) {
+async function InsertIndexUnique(index, collection, databaseName, sessionOpts = {}) {
   try {
     const dbName = databaseName || mongoDb;
     const db = await getMongoClient(dbName);
     return await db
       .collection(collection)
-      .createIndex(index, { unique: true });
+      .createIndex(index, { unique: true, ...sessionOpts });
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("InsertIndexUnique error:", error.message);
     return [];
   }
@@ -1195,7 +1227,7 @@ async function InsertIndexUnique(index, collection, databaseName) {
  * @param {string} [databaseName]       - Optional DB name; defaults to `mongoDb`.
  * @returns {Promise<UpdateResult|[]>}  Update result on success, empty array on failure.
  */
-async function ND_DeleteMongoby_id(_id, collection, databaseName) {
+async function ND_DeleteMongoby_id(_id, collection, databaseName, sessionOpts = {}) {
   try {
     const dbName = databaseName || mongoDb;
     const db = await getMongoClient(dbName);
@@ -1204,16 +1236,16 @@ async function ND_DeleteMongoby_id(_id, collection, databaseName) {
     /* -------- 1. Soft-delete the document -------- */
     const result = await db
       .collection(collection)
-      .updateOne(query, { $set: tagDeleted });
+      .updateOne(query, { $set: tagDeleted }, sessionOpts);
 
     /* -------- 2. Handle unique index conflicts -------- */
-    const indexes = await db.collection(collection).indexes();
+    const indexes = await db.collection(collection).indexes(sessionOpts);
     const indexedFields = indexes
       .map((idx) => Object.keys(idx.key)[0])
       .slice(1);
 
     if (indexedFields.length > 0) {
-      const docs = await db.collection(collection).find(query).toArray();
+      const docs = await db.collection(collection).find(query, sessionOpts).toArray();
       const doc = docs[0];
 
       const renamedIndexValues = indexedFields.reduce((acc, property) => {
@@ -1225,11 +1257,12 @@ async function ND_DeleteMongoby_id(_id, collection, databaseName) {
 
       await db
         .collection(collection)
-        .updateOne(query, { $set: renamedIndexValues });
+        .updateOne(query, { $set: renamedIndexValues }, sessionOpts);
     }
 
     return result;
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("ND_DeleteMongoby_id error:", error.message);
     return [];
   }
@@ -1244,12 +1277,13 @@ async function ND_DeleteMongoby_id(_id, collection, databaseName) {
  * @param {string} [databaseName]  - Optional DB name; defaults to `mongoDb`.
  * @returns {Promise<Array>}       Array of index definitions, or `[]` on error.
  */
-async function getIndexs(collection, databaseName) {
+async function getIndexs(collection, databaseName, sessionOpts = {}) {
   try {
     const dbName = databaseName || mongoDb;
     const db = await getMongoClient(dbName);
-    return await db.collection(collection).indexes();
+    return await db.collection(collection).indexes(sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("getIndexs error:", error.message);
     return [];
   }
@@ -1272,14 +1306,16 @@ async function UpdateMongoManyRename(
   newProperties,
   collection,
   databaseName,
+  sessionOpts = {},
 ) {
   try {
     const dbName = databaseName || mongoDb;
     const db = await getMongoClient(dbName);
     return await db
       .collection(collection)
-      .updateMany(query, { $rename: newProperties });
+      .updateMany(query, { $rename: newProperties }, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("UpdateMongoManyRename error:", error.message);
     return [];
   }
@@ -1302,6 +1338,7 @@ async function UpdateMongoBy_idPush(
   newProperties,
   collection,
   databaseName,
+  sessionOpts = {},
 ) {
   try {
     const dbName = databaseName || mongoDb;
@@ -1309,8 +1346,9 @@ async function UpdateMongoBy_idPush(
     const query = { _id: new ObjectId(_id) };
     return await db
       .collection(collection)
-      .updateOne(query, { $push: newProperties });
+      .updateOne(query, { $push: newProperties }, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("UpdateMongoBy_idPush error:", error.message);
     return [];
   }
@@ -1333,6 +1371,7 @@ async function UpdateMongoManyBy_idPush(
   newProperties,
   collection,
   databaseName,
+  sessionOpts = {},
 ) {
   try {
     const dbName = databaseName || mongoDb;
@@ -1340,8 +1379,9 @@ async function UpdateMongoManyBy_idPush(
     const query = { _id: { $in: _idArr.map((e) => new ObjectId(e)) } };
     return await db
       .collection(collection)
-      .updateMany(query, { $push: newProperties });
+      .updateMany(query, { $push: newProperties }, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("UpdateMongoManyBy_idPush error:", error.message);
     return [];
   }
@@ -1364,6 +1404,7 @@ async function UpdateMongoManyBy_idAddToSet(
   newProperties,
   collection,
   databaseName,
+  sessionOpts = {},
 ) {
   try {
     const dbName = databaseName || mongoDb;
@@ -1371,8 +1412,9 @@ async function UpdateMongoManyBy_idAddToSet(
     const query = { _id: { $in: _idArr.map((e) => new ObjectId(e)) } };
     return await db
       .collection(collection)
-      .updateMany(query, { $addToSet: newProperties });
+      .updateMany(query, { $addToSet: newProperties }, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("UpdateMongoManyBy_idAddToSet error:", error.message);
     return [];
   }
@@ -1395,6 +1437,7 @@ async function UpdateMongoManyBy_idPull(
   newProperties,
   collection,
   databaseName,
+  sessionOpts = {},
 ) {
   try {
     const dbName = databaseName || mongoDb;
@@ -1402,8 +1445,9 @@ async function UpdateMongoManyBy_idPull(
     const query = { _id: { $in: _idArr.map((e) => new ObjectId(e)) } };
     return await db
       .collection(collection)
-      .updateMany(query, { $pull: newProperties });
+      .updateMany(query, { $pull: newProperties }, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("UpdateMongoManyBy_idPull error:", error.message);
     return [];
   }
@@ -1426,14 +1470,16 @@ async function UpdateMongoManyPullIDToCollectionPull(
   query,
   collection,
   databaseName,
+  sessionOpts = {},
 ) {
   try {
     const dbName = databaseName || mongoDb;
     const db = await getMongoClient(dbName);
     return await db
       .collection(collection)
-      .updateMany(query, { $pull: query });
+      .updateMany(query, { $pull: query }, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error(
       "UpdateMongoManyPullIDToCollectionPull error:",
       error.message,
@@ -1459,6 +1505,7 @@ async function UpdateMongoBy_idRemoveProperty(
   property,
   collection,
   databaseName,
+  sessionOpts = {},
 ) {
   try {
     const dbName = databaseName || mongoDb;
@@ -1466,8 +1513,9 @@ async function UpdateMongoBy_idRemoveProperty(
     const query = { _id: new ObjectId(_id) };
     return await db
       .collection(collection)
-      .updateOne(query, { $unset: { [property]: 1 } });
+      .updateOne(query, { $unset: { [property]: 1 } }, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("UpdateMongoBy_idRemoveProperty error:", error.message);
     return [];
   }
@@ -1492,6 +1540,7 @@ async function UpdateBy_idPush_id(
   new_id,
   collection,
   databaseName,
+  sessionOpts = {},
 ) {
   try {
     const dbName = databaseName || mongoDb;
@@ -1501,8 +1550,9 @@ async function UpdateBy_idPush_id(
       .collection(collection)
       .updateOne(query, {
         $push: { [originCollection]: new ObjectId(new_id) },
-      });
+      }, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("UpdateBy_idPush_id error:", error.message);
     return [];
   }
@@ -1522,12 +1572,14 @@ async function DeleteMongoCallback(
   idObjectToDelete,
   collection,
   databaseName,
+  sessionOpts = {},
 ) {
   try {
     const dbName = databaseName || mongoDb;
     const db = await getMongoClient(dbName);
-    await db.collection(collection).deleteOne({ _id: new ObjectId(idObjectToDelete) });
+    await db.collection(collection).deleteOne({ _id: new ObjectId(idObjectToDelete) }, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("DeleteMongoCallback error:", error.message);
   }
 }
@@ -1553,6 +1605,7 @@ async function GetNextSequenceValue(
   increment,
   collection,
   databaseName,
+  sessionOpts = {},
 ) {
   try {
     const dbName = databaseName || mongoDb;
@@ -1563,11 +1616,12 @@ async function GetNextSequenceValue(
       .findOneAndUpdate(
         query,
         { $inc: { sequence_value: increment } },
-        { upsert: true },
+        { upsert: true, ...sessionOpts },
       );
 
     return result.value.sequence_value;
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("GetNextSequenceValue error:", error.message);
     return null;
   }
@@ -1584,13 +1638,14 @@ async function GetNextSequenceValue(
  * @param {string} [databaseName]  - Optional DB name; defaults to `mongoDb`.
  * @returns {Promise<Object>}      The matched document, or `{}` on error.
  */
-async function ND_FindOne(query, collection, databaseName) {
+async function ND_FindOne(query, collection, databaseName, sessionOpts = {}) {
   try {
     const dbName = databaseName || mongoDb;
     const db = await getMongoClient(dbName);
     const queryNotDeleted = { ...query, ...operatorNotDeleted };
-    return await db.collection(collection).findOne(queryNotDeleted);
+    return await db.collection(collection).findOne(queryNotDeleted, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("ND_FindOne error:", error.message);
     return {};
   }
@@ -1613,6 +1668,7 @@ async function ND_FindMany(
   collection,
   databaseName,
   order = { _id: 1 },
+  sessionOpts = {},
 ) {
   try {
     const dbName = databaseName || mongoDb;
@@ -1620,10 +1676,11 @@ async function ND_FindMany(
     const queryNotDeleted = { ...query, ...operatorNotDeleted };
     return await db
       .collection(collection)
-      .find(queryNotDeleted)
+      .find(queryNotDeleted, sessionOpts)
       .sort(order)
       .toArray();
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("ND_FindMany error:", error.message);
     return [];
   }
@@ -1649,6 +1706,7 @@ async function ND_FindPaginated(
   nPerPage,
   collection,
   databaseName,
+  sessionOpts = {},
 ) {
   try {
     const dbName = databaseName || mongoDb;
@@ -1658,12 +1716,13 @@ async function ND_FindPaginated(
 
     return await db
       .collection(collection)
-      .find(queryNotDeleted)
+      .find(queryNotDeleted, sessionOpts)
       .sort({ _id: 1 })
       .skip(skip)
       .limit(nPerPage)
       .toArray();
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("ND_FindPaginated error:", error.message);
     return [];
   }
@@ -1681,7 +1740,7 @@ async function ND_FindPaginated(
  * @param {Array<string>} joinCollection  - Array of collection names to join.
  * @returns {Promise<Array>}              Populated documents, or `[]` on error.
  */
-async function Populate(collection, databaseName, joinCollection) {
+async function Populate(collection, databaseName, joinCollection, sessionOpts = {}) {
   try {
     const dbName = databaseName || mongoDb;
     const db = await getMongoClient(dbName);
@@ -1695,8 +1754,9 @@ async function Populate(collection, databaseName, joinCollection) {
       },
     }));
 
-    return await db.collection(collection).aggregate(lookup).toArray();
+    return await db.collection(collection).aggregate(lookup, sessionOpts).toArray();
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("Populate error:", error.message);
     return [];
   }
@@ -1715,20 +1775,20 @@ async function Populate(collection, databaseName, joinCollection) {
  * @param {string} [databaseName]  - Optional DB name; defaults to `mongoDb`.
  * @returns {Promise<Array>}       Populated documents, or `[]` if none found / on error.
  */
-async function PopulateAuto(query, collection, databaseName) {
+async function PopulateAuto(query, collection, databaseName, sessionOpts = {}) {
   try {
     const dbName = databaseName || mongoDb;
     const db = await getMongoClient(dbName);
 
     if (query._id) query._id = new ObjectId(query._id);
 
-    const doc = await db.collection(collection).findOne(query);
+    const doc = await db.collection(collection).findOne(query, sessionOpts);
     if (!doc) return [];
 
     const allKeys = Object.keys(doc).filter((key) => key.includes("_id"));
 
     if (allKeys.length <= 1) {
-      return await db.collection(collection).find(query).toArray();
+      return await db.collection(collection).find(query, sessionOpts).toArray();
     }
 
     const aggregate = [{ $match: query }];
@@ -1745,8 +1805,9 @@ async function PopulateAuto(query, collection, databaseName) {
     });
     aggregate.push(...lookups);
 
-    return await db.collection(collection).aggregate(aggregate).toArray();
+    return await db.collection(collection).aggregate(aggregate, sessionOpts).toArray();
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("PopulateAuto error:", error.message);
     return [];
   }
@@ -1764,19 +1825,19 @@ async function PopulateAuto(query, collection, databaseName) {
  * @returns {Promise<Array|Object>}     Populated documents array, or `{}`
  *                                      if not found / on error.
  */
-async function FindIDOnePopulated(Id, collection, databaseName) {
+async function FindIDOnePopulated(Id, collection, databaseName, sessionOpts = {}) {
   try {
     const dbName = databaseName || mongoDb;
     const db = await getMongoClient(dbName);
     const query = { _id: new ObjectId(Id) };
 
-    const doc = await db.collection(collection).findOne(query);
+    const doc = await db.collection(collection).findOne(query, sessionOpts);
     if (!doc) return {};
 
     const allKeys = Object.keys(doc).filter((key) => key.includes("_id"));
 
     if (allKeys.length <= 1) {
-      return await db.collection(collection).find(query).toArray();
+      return await db.collection(collection).find(query, sessionOpts).toArray();
     }
 
     const aggregate = [{ $match: query }];
@@ -1793,8 +1854,9 @@ async function FindIDOnePopulated(Id, collection, databaseName) {
     });
     aggregate.push(...lookups);
 
-    return await db.collection(collection).aggregate(aggregate).toArray();
+    return await db.collection(collection).aggregate(aggregate, sessionOpts).toArray();
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("FindIDOnePopulated error:", error.message);
     return {};
   }
@@ -1812,14 +1874,14 @@ async function FindIDOnePopulated(Id, collection, databaseName) {
  * @returns {Promise<Array|Object>}     Populated documents array, or `{}`
  *                                      if not found / on error.
  */
-async function ND_FindIDOnePopulated(Id, collection, databaseName) {
+async function ND_FindIDOnePopulated(Id, collection, databaseName, sessionOpts = {}) {
   try {
     const dbName = databaseName || mongoDb;
     const db = await getMongoClient(dbName);
     const query = { _id: new ObjectId(Id) };
     const queryNotDeleted = { ...query, ...operatorNotDeleted };
 
-    const doc = await db.collection(collection).findOne(queryNotDeleted);
+    const doc = await db.collection(collection).findOne(queryNotDeleted, sessionOpts);
     if (!doc) return {};
 
     const allKeys = Object.keys(doc).filter((key) => key.includes("_id"));
@@ -1827,7 +1889,7 @@ async function ND_FindIDOnePopulated(Id, collection, databaseName) {
     if (allKeys.length <= 1) {
       return await db
         .collection(collection)
-        .find(queryNotDeleted)
+        .find(queryNotDeleted, sessionOpts)
         .toArray();
     }
 
@@ -1845,8 +1907,9 @@ async function ND_FindIDOnePopulated(Id, collection, databaseName) {
     });
     aggregate.push(...lookups);
 
-    return await db.collection(collection).aggregate(aggregate).toArray();
+    return await db.collection(collection).aggregate(aggregate, sessionOpts).toArray();
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("ND_FindIDOnePopulated error:", error.message);
     return {};
   }
@@ -1869,17 +1932,173 @@ async function UpdateMongoManyPull(
   propertiesRemove,
   collection,
   databaseName,
+  sessionOpts = {},
 ) {
   try {
     const dbName = databaseName || mongoDb;
     const db = await getMongoClient(dbName);
     return await db
       .collection(collection)
-      .updateMany(query, { $pull: propertiesRemove });
+      .updateMany(query, { $pull: propertiesRemove }, sessionOpts);
   } catch (error) {
+    if (sessionOpts.session) throw error;
     console.error("UpdateMongoManyPull error:", error.message);
     return [];
   }
+}
+
+/**
+ * Transaction
+ * ------------------------------------------------------------------
+ * Executes a callback inside a MongoDB transaction with automatic
+ * retry via `session.withTransaction()`. All operations performed
+ * through the `tx` proxy object are bound to the transaction session.
+ *
+ * Requires a MongoDB replica set.
+ *
+ * @param {Function} callback           - Async function receiving a `tx` proxy object.
+ * @param {Object}  [transactionOptions] - Options forwarded to `session.withTransaction()`.
+ * @returns {Promise<*>} The value returned by the callback.
+ */
+async function Transaction(callback, transactionOptions = {}) {
+  if (!mongoDBConnectionManager.isConnected()) {
+    await mongoDBConnectionManager.connect(mongo.uri);
+  }
+  const client = mongoDBConnectionManager.getClient();
+  const session = client.startSession();
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      const tx = {
+        AggregationMongo: (arrAggregation, collection, databaseName) =>
+          AggregationMongo(arrAggregation, collection, databaseName, { session }),
+        AggregationMongoCursor: (arrAggregation, collection, databaseName, batchSize) =>
+          AggregationMongoCursor(arrAggregation, collection, databaseName, batchSize, { session }),
+        Count: (query, collection, databaseName) =>
+          Count(query, collection, databaseName, { session }),
+        DeleteMongo: (query, collection, databaseName) =>
+          DeleteMongo(query, collection, databaseName, { session }),
+        DeleteMongoby_id: (Id, collection, databaseName) =>
+          DeleteMongoby_id(Id, collection, databaseName, { session }),
+        DeleteMongoCallback: (idObjectToDelete, collection, databaseName) =>
+          DeleteMongoCallback(idObjectToDelete, collection, databaseName, { session }),
+        Distinct: (field, collection, databaseName) =>
+          Distinct(field, collection, databaseName, { session }),
+        DropCollection: (collection, databaseName) =>
+          DropCollection(collection, databaseName, { session }),
+        FindIDOne: (Id, collection, databaseName) =>
+          FindIDOne(Id, collection, databaseName, { session }),
+        FindIDOnePopulated: (Id, collection, databaseName) =>
+          FindIDOnePopulated(Id, collection, databaseName, { session }),
+        FindLimitLast: (query, limit, collection, databaseName) =>
+          FindLimitLast(query, limit, collection, databaseName, { session }),
+        FindMany: (query, collection, databaseName) =>
+          FindMany(query, collection, databaseName, { session }),
+        FindManyLimit: (query, limit, collection, databaseName) =>
+          FindManyLimit(query, limit, collection, databaseName, { session }),
+        FindManyOptions: (query, collection, databaseName, options) =>
+          FindManyOptions(query, collection, databaseName, { ...options, session }),
+        FindOne: (query, collection, databaseName) =>
+          FindOne(query, collection, databaseName, { session }),
+        FindOneAndUpdate: (query, newProperties, collection, databaseName, options) =>
+          FindOneAndUpdate(query, newProperties, collection, databaseName, { ...options, session }),
+        FindOneLast: (query, sortobj, collection, databaseName) =>
+          FindOneLast(query, sortobj, collection, databaseName, { session }),
+        FindPaginated: (query, pageNumber, nPerPage, collection, databaseName) =>
+          FindPaginated(query, pageNumber, nPerPage, collection, databaseName, { session }),
+        FindPaginatedOptions: (query, pageNumber, nPerPage, collection, databaseName, options) =>
+          FindPaginatedOptions(query, pageNumber, nPerPage, collection, databaseName, { ...options, session }),
+        GetAll: (collection, databaseName) =>
+          GetAll(collection, databaseName, { session }),
+        getIndexs: (collection, databaseName) =>
+          getIndexs(collection, databaseName, { session }),
+        GetLastMongo: (limit, collection, databaseName) =>
+          GetLastMongo(limit, collection, databaseName, { session }),
+        GetNextSequenceValue: (query, increment, collection, databaseName) =>
+          GetNextSequenceValue(query, increment, collection, databaseName, { session }),
+        InsertIndex: (index, collection, databaseName) =>
+          InsertIndex(index, collection, databaseName, { session }),
+        InsertIndexUnique: (index, collection, databaseName) =>
+          InsertIndexUnique(index, collection, databaseName, { session }),
+        ND_DeleteMongoby_id: (_id, collection, databaseName) =>
+          ND_DeleteMongoby_id(_id, collection, databaseName, { session }),
+        ND_FindIDOnePopulated: (Id, collection, databaseName) =>
+          ND_FindIDOnePopulated(Id, collection, databaseName, { session }),
+        ND_FindMany: (query, collection, databaseName, order) =>
+          ND_FindMany(query, collection, databaseName, order, { session }),
+        ND_FindOne: (query, collection, databaseName) =>
+          ND_FindOne(query, collection, databaseName, { session }),
+        ND_FindPaginated: (query, pageNumber, nPerPage, collection, databaseName) =>
+          ND_FindPaginated(query, pageNumber, nPerPage, collection, databaseName, { session }),
+        ND_PopulateAuto: (query, collection, databaseName) =>
+          ND_PopulateAuto(query, collection, databaseName, { session }),
+        Populate: (collection, databaseName, joinCollection) =>
+          Populate(collection, databaseName, joinCollection, { session }),
+        PopulateAuto: (query, collection, databaseName) =>
+          PopulateAuto(query, collection, databaseName, { session }),
+        SaveManyBatch: (arrToSave, collection, databaseName) =>
+          SaveManyBatch(arrToSave, collection, databaseName, { session }),
+        SavetoMongo: (objectToSave, collection, databaseName) =>
+          SavetoMongo(objectToSave, collection, databaseName, { session }),
+        SavetoMongoCallback: (objectToSave, collection, databaseName) =>
+          SavetoMongoCallback(objectToSave, collection, databaseName, { session }),
+        SavetoMongoMany: (arrToSave, collection, databaseName) =>
+          SavetoMongoMany(arrToSave, collection, databaseName, { session }),
+        UpdateBy_idPush_id: (_id, originCollection, new_id, collection, databaseName) =>
+          UpdateBy_idPush_id(_id, originCollection, new_id, collection, databaseName, { session }),
+        UpdateMongo: (query, newProperties, collection, databaseName) =>
+          UpdateMongo(query, newProperties, collection, databaseName, { session }),
+        UpdateMongoBy_id: (_id, newProperties, collection, databaseName) =>
+          UpdateMongoBy_id(_id, newProperties, collection, databaseName, { session }),
+        UpdateMongoBy_idPush: (_id, newProperties, collection, databaseName) =>
+          UpdateMongoBy_idPush(_id, newProperties, collection, databaseName, { session }),
+        UpdateMongoBy_idRemoveProperty: (_id, property, collection, databaseName) =>
+          UpdateMongoBy_idRemoveProperty(_id, property, collection, databaseName, { session }),
+        UpdateMongoMany: (query, newProperties, collection, databaseName) =>
+          UpdateMongoMany(query, newProperties, collection, databaseName, { session }),
+        UpdateMongoManyBy_idAddToSet: (_idArr, newProperties, collection, databaseName) =>
+          UpdateMongoManyBy_idAddToSet(_idArr, newProperties, collection, databaseName, { session }),
+        UpdateMongoManyBy_idPull: (_idArr, newProperties, collection, databaseName) =>
+          UpdateMongoManyBy_idPull(_idArr, newProperties, collection, databaseName, { session }),
+        UpdateMongoManyBy_idPush: (_idArr, newProperties, collection, databaseName) =>
+          UpdateMongoManyBy_idPush(_idArr, newProperties, collection, databaseName, { session }),
+        UpdateMongoManyPull: (query, propertiesRemove, collection, databaseName) =>
+          UpdateMongoManyPull(query, propertiesRemove, collection, databaseName, { session }),
+        UpdateMongoManyPullIDToCollectionPull: (query, collection, databaseName) =>
+          UpdateMongoManyPullIDToCollectionPull(query, collection, databaseName, { session }),
+        UpdateMongoManyRename: (query, newProperties, collection, databaseName) =>
+          UpdateMongoManyRename(query, newProperties, collection, databaseName, { session }),
+        UpdateOneRaw: (query, newProperties, collection, databaseName, options) =>
+          UpdateOneRaw(query, newProperties, collection, databaseName, { ...options, session }),
+        UpsertMongo: (query, newProperties, collection, databaseName) =>
+          UpsertMongo(query, newProperties, collection, databaseName, { session }),
+        ObjectId,
+        disconnect: () => mongoDBConnectionManager.closeAllConnections(),
+      };
+      result = await callback(tx);
+    }, transactionOptions);
+    return result;
+  } finally {
+    await session.endSession();
+  }
+}
+
+/**
+ * StartSession
+ * ------------------------------------------------------------------
+ * Creates and returns a new MongoDB `ClientSession` for manual
+ * transaction control.
+ *
+ * Requires a MongoDB replica set.
+ *
+ * @returns {Promise<ClientSession>} A MongoDB client session.
+ */
+async function StartSession() {
+  if (!mongoDBConnectionManager.isConnected()) {
+    await mongoDBConnectionManager.connect(mongo.uri);
+  }
+  const client = mongoDBConnectionManager.getClient();
+  return client.startSession();
 }
 
 const factory = function (connectionString, defaultDbName) {
@@ -1926,6 +2145,8 @@ const factory = function (connectionString, defaultDbName) {
     SavetoMongo,
     SavetoMongoCallback,
     SavetoMongoMany,
+    StartSession,
+    Transaction,
     UpdateBy_idPush_id,
     UpdateMongo,
     UpdateMongoBy_id,

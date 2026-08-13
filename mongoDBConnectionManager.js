@@ -44,6 +44,15 @@ class MongoDBConnectionManager {
     return this.connections[dbName];
   }
 
+  getClient() {
+    if (!this.client) {
+      throw new Error(
+        "You must connect to the server before obtaining the client.",
+      );
+    }
+    return this.client;
+  }
+
   async closeAllConnections() {
     if (this.client) {
       await this.client.close();

@@ -10,6 +10,8 @@ import {
   IndexDescription,
   FindCursor,
   SortDirection,
+  ClientSession,
+  TransactionOptions,
 } from "mongodb";
 
 interface FindManyOptions {
@@ -81,6 +83,10 @@ interface MongoWrapper {
   ND_FindMany(query: Document, collection: string, databaseName?: string, order?: Record<string, SortDirection>): Promise<Document[]>;
   ND_FindPaginated(query: Document, pageNumber: number, nPerPage: number, collection: string, databaseName?: string): Promise<Document[]>;
   ND_DeleteMongoby_id(_id: string | ObjectId, collection: string, databaseName?: string): Promise<UpdateResult>;
+
+  // Transactions
+  Transaction<T = unknown>(callback: (tx: MongoWrapper) => Promise<T>, transactionOptions?: TransactionOptions): Promise<T>;
+  StartSession(): Promise<ClientSession>;
 
   // Connection
   disconnect(): Promise<void>;

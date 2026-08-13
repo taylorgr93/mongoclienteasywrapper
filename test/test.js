@@ -654,12 +654,58 @@ const testConvertPreservesDate = async () => {
   assert.ok(result.user_id instanceof ObjectId, "should still convert _id fields");
 };
 
+// --------------- Transaction tests ---------------
+
+const txCollection = "testTxCollection";
+
+const testTransactionCommit = async () => {
+  try {
+    await MongoWraper.Transaction(async (tx) => {
+      await tx.SavetoMongo({ _id: new ObjectId("aaaaaaaaaaaaaaaaaaaaaaaa"), name: "tx-doc" }, txCollection, testDB);
+      await tx.UpdateMongoBy_id("aaaaaaaaaaaaaaaaaaaaaaaa", { name: "tx-doc-updated" }, txCollection, testDB);
+    });
+    const doc = await MongoWraper.FindIDOne("aaaaaaaaaaaaaaaaaaaaaaaa", txCollection, testDB);
+    assert.strictEqual(doc.name, "tx-doc-updated");
+    await MongoWraper.DeleteMongoby_id("aaaaaaaaaaaaaaaaaaaaaaaa", txCollection, testDB);
+  } catch (error) {
+    if (error.message && error.message.includes("Transaction numbers")) {
+      console.log("    ⚠ Skipped (standalone server — replica set required)");
+      return;
+    }
+    throw error;
+  }
+};
+
+const testTransactionRollback = async () => {
+  try {
+    await MongoWraper.SavetoMongo({ _id: new ObjectId("bbbbbbbbbbbbbbbbbbbbbbbb"), name: "before-tx" }, txCollection, testDB);
+    try {
+      await MongoWraper.Transaction(async (tx) => {
+        await tx.UpdateMongoBy_id("bbbbbbbbbbbbbbbbbbbbbbbb", { name: "inside-tx" }, txCollection, testDB);
+        throw new Error("intentional rollback");
+      });
+    } catch (e) {
+      if (e.message !== "intentional rollback") throw e;
+    }
+    const doc = await MongoWraper.FindIDOne("bbbbbbbbbbbbbbbbbbbbbbbb", txCollection, testDB);
+    assert.strictEqual(doc.name, "before-tx");
+    await MongoWraper.DeleteMongoby_id("bbbbbbbbbbbbbbbbbbbbbbbb", txCollection, testDB);
+  } catch (error) {
+    if (error.message && error.message.includes("Transaction numbers")) {
+      console.log("    ⚠ Skipped (standalone server — replica set required)");
+      return;
+    }
+    throw error;
+  }
+};
+
 // --------------- Test runner ---------------
 
 async function cleanupTestData() {
   await MongoWraper.DropCollection(testCollection, testDB);
   await MongoWraper.DropCollection(testCollection2, testDB);
   await MongoWraper.DropCollection(testIndexCollection, testDB);
+  await MongoWraper.DropCollection(txCollection, testDB);
 }
 
 const runTests = async () => {
@@ -811,6 +857,11 @@ const runTests = async () => {
   console.log("\nGroup 9: ObjectId export");
   await runTest("ObjectId static export", testObjectIdStaticExport);
   await runTest("ObjectId instance export", testObjectIdInstanceExport);
+
+  // Group 10: Transactions (require replica set)
+  console.log("\nGroup 10: Transactions");
+  await runTest("Transaction commit", testTransactionCommit);
+  await runTest("Transaction rollback", testTransactionRollback);
 
   // Final cleanup
   await cleanupTestData();
